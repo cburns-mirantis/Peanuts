@@ -7,6 +7,10 @@ import json
 # Uses the Fuel API (as opposed to the CLI) to collect information about ...
 # This is used for the creation of the runbook
 
+def GetNetworkConfig(token, cluster_id):
+	nodeCmd = 'curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/clusters/' + cluster_id + '/network_configurneutronn/ > network_config_' + cluster_id + '_data.json'
+	subprocess.call(nodeCmd,shell=True)
+
 def GetNodeData(token):
 	#nodeCmd = 'curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/" + node + " > node" + node + "data.json'
 	# Loops through a list of node IDs (string format)
@@ -14,7 +18,6 @@ def GetNodeData(token):
 	for node in nodeList:
 		try:	
 			nodeCmd = 'curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/' + str(node) + ' > node' + str(node) + 'data.json'
-			#print nodeCmd
 			subprocess.call(nodeCmd,shell=True)
 		except:
 			print "JSON collection for node " + node + " failed."
@@ -33,12 +36,8 @@ def GenDataFiles(tokenLoc):
 		token = tokenLoc
 	
 	# Make the API call and format the output
-	#subprocess.call('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/2 > nodetest.json',shell=True)
-	
-	GetNodeData(token)
-	#output = open("nodetest_formatted.json",'w')
-	#output.write(json.dumps(jsonFile, indent=4))
-	#output.close()
+#	GetNodeData(token)
+	GetNetworkConfig(token,'1')
 	print "\nData generation successful."
 	
 
@@ -49,8 +48,6 @@ def Main():
 		print 'No token specified; creating new token'
 		print 'Use "./gatherData.py <token or token file>" to specify token'
 		tokenLoc = subprocess.check_output('fuel token',shell=True)
-		print tokenLoc #remove
-		exit
 	else:
 		try:
 			tokenLoc = sys.argv[1]
