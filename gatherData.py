@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import json
+import docx
 
 # Uses the Fuel API (as opposed to the CLI) to collect information about ...
 # This is used for the creation of the runbook
