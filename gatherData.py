@@ -16,7 +16,6 @@ def GetNetworkConfig(token, cluster_id, replaceList):
 	output = open("network_config.json", "w")
 	output.write(json.dumps(data, indent=4))
 	output.close() 
-	#replaceList.append(data['vips']['management']['namespace']
 
 # Gather cluster and individual node information and append relevant info to replaceList[]
 def GetNodeData(token, cluster_id, replaceList):
@@ -30,25 +29,30 @@ def GetNodeData(token, cluster_id, replaceList):
 
 	# Loops through a list of node IDs (string format) to gather node and (interface?) data
 	nodeList = [1,2,3,4] #Hardcoded for now; change later
+
+	# NodesVMs is a runbook table that will be dynamically generated using the docx library
 	NodesVMs = {}
 	for node in nodeList:
 		try:	
 			data = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/' + str(node),shell=True))
-			output = open("node_" + str(node) + ".json", "w")
-			output.write(json.dumps(data, indent=4))
-			output.close()
+			#output = open("node_" + str(node) + ".json", "w")
+			#output.write(json.dumps(data, indent=4))
+			#output.close()
+			
 			NodeInfo = {}
 			NodeInfo['hostname'] = data['fqdn']
 			NodeInfo['roles'] = data['roles'][0]
+			NodeInfo['admin_ip'] = data['ip']
+			NodeInfo['CPUcores'] = subprocess.check_output("ssh " + data['ip'] + " 'cat /proc/cpuinfo | grep cores'")
+
 			NodesVMs['node_' + str(node)] = NodeInfo
 		except:
 			print "JSON collection for node " + node + " failed."
-	outp = open("testwritejson.json","w")
-	outp.write(json.dumps(NodesVMs,indent=4))
-	outp.close()
+	#outp = open("testwritejson.json","w")
+	#outp.write(json.dumps(NodesVMs,indent=4))
+	#outp.close()
 
 	print "Finished collecting node data"
-	#print NodesVMs
 
 # Iteratively creates json files with data collected from the Fuel API
 def GenDataFiles(tokenLoc):
@@ -61,11 +65,11 @@ def GenDataFiles(tokenLoc):
 	except:
 		token = tokenLoc
 	
-	replaceList = []
 	# Make the API call and format the output
+	
 	GetNodeData(token, '1', replaceList)
 	GetNetworkConfig(token, '1', replaceList)
-	#print replaceList
+
 	print "\nData generation successful."
 
 # The first command line argument (after the script name) should either be a file containing the token or the token itself;
