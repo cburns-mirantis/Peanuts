@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 import subprocess
 import sys
@@ -7,28 +7,48 @@ import json
 # Uses the Fuel API (as opposed to the CLI) to collect information about ...
 # This is used for the creation of the runbook
 
-def GetNetworkConfig(token, cluster_id):
-	nodeCmd = 'curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/clusters/' + cluster_id + '/network_configuration/neutron/ > network_config_' + cluster_id + '_data.json'
-	subprocess.call(nodeCmd,shell=True)
+# Gather network configuration information and append relevant info to replaceList[]
+def GetNetworkConfig(token, cluster_id, replaceList):
+	# Fuel API call; response gets saved to "data" as JSON object
+	data = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/clusters/' + cluster_id + '/network_configuration/neutron/',shell=True))
+	
+	# Write output to a file for testing - REMOVE later
+	output = open("network_config.json", "w")
+	output.write(json.dumps(data, indent=4))
+	output.close() 
+	#replaceList.append(data['vips']['management']['namespace']
 
-def GetNodeData(token):
-	#nodeCmd = 'curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/" + node + " > node" + node + "data.json'
-	# Loops through a list of node IDs (string format)
-	nodeList = [1,2,3,4]
+# Gather cluster and individual node information and append relevant info to replaceList[]
+def GetNodeData(token, cluster_id, replaceList):
+	# Start by gathering cluster information; save API response to data as JSON object
+	data = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/clusters/1/attributes/',shell=True))
+	
+	# Write output to a file for testing - REMOVE later
+	output = open("cluster_" + cluster_id + "_info.json", "w")
+	output.write(json.dumps(data, indent=4))
+	output.close() 
 
+	# Loops through a list of node IDs (string format) to gather node and (interface?) data
+	nodeList = [1,2,3,4] #Hardcoded for now; change later
+	NodesVMs = {}
 	for node in nodeList:
 		try:	
-			data = subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/' + str(node) + '/interfaces/',shell=True)
-			output = open("node" + str(node) + ".json", "w")
-			output.write(json.dumps(json.loads(data), indent=4))
-			output.close() 
-
-			#nodeCmd = 'curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/' + str(node) + ' > node' + str(node) + 'data.json'
-			#subprocess.call(nodeCmd,shell=True)
+			data = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/nodes/' + str(node),shell=True))
+			output = open("node_" + str(node) + ".json", "w")
+			output.write(json.dumps(data, indent=4))
+			output.close()
+			NodeInfo = {}
+			NodeInfo['hostname'] = data['fqdn']
+			NodeInfo['roles'] = data['roles'][0]
+			NodesVMs['node_' + str(node)] = NodeInfo
 		except:
 			print "JSON collection for node " + node + " failed."
-	print "Finished collecting node data"
+	outp = open("testwritejson.json","w")
+	outp.write(json.dumps(NodesVMs,indent=4))
+	outp.close()
 
+	print "Finished collecting node data"
+	#print NodesVMs
 
 # Iteratively creates json files with data collected from the Fuel API
 def GenDataFiles(tokenLoc):
@@ -41,11 +61,12 @@ def GenDataFiles(tokenLoc):
 	except:
 		token = tokenLoc
 	
+	replaceList = []
 	# Make the API call and format the output
-	GetNodeData(token)
-#	GetNetworkConfig(token,'1')
+	GetNodeData(token, '1', replaceList)
+	GetNetworkConfig(token, '1', replaceList)
+	#print replaceList
 	print "\nData generation successful."
-	
 
 # The first command line argument (after the script name) should either be a file containing the token or the token itself;
 #  if neither are available, a new token will be automatically generated and used for the duration of the script.
