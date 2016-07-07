@@ -7,8 +7,73 @@ import json
 # Uses the Fuel API (as opposed to the CLI) to collect information about ...
 # This is used for the creation of the runbook
 
-# Gather network configuration information and append relevant info to replaceList[]
-def GetNetworkConfig(token, cluster_id, replaceList):
+# Gathers information to replace tags that may not be collected from the other functions
+def GetMiscTags(token, RepJSON):
+	versionData = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/version',shell=True))
+	fuelVersion = versionData['release']
+	openstackVersion = versionData['openstack_version']
+	
+	RepJSON['<fueldocversion>'] = 'https://docs.mirantis.com/openstack/fuel/' + fuelVersion + '/'
+
+	# Network Layout - refactor with for loops later on
+	RepJSON['<sp_ipmi>'] = 
+	RepJSON['<port_mode_ipmi>'] = 
+	RepJSON['<ip_range_ipmi>'] = 
+	RepJSON['<vlan_ipmi>'] = 
+	RepJSON['<interface_ipmi>'] = 
+
+	RepJSON['<sp_pxe>'] = 
+	RepJSON['<port_mode_pxe>'] = 
+	RepJSON['<ip_range_pxe>'] = 
+	RepJSON['<vlan_pxe>'] = 
+	RepJSON['<interface_pxe>'] = 
+	
+	RepJSON['<sp_mgmt>'] = 
+	RepJSON['<port_mode_mgmt>'] = 
+	RepJSON['<ip_range_mgmt>'] = 
+	RepJSON['<vlan_mgmt>'] = 
+	RepJSON['<interface_mgmt>'] = 
+
+	RepJSON['<sp_st_net>'] = 
+	RepJSON['<port_mode_st_net>'] = 
+	RepJSON['<ip_range_st_net>'] = 
+	RepJSON['<vlan_st_net>'] = 
+	RepJSON['<interface_st_net>'] = 
+	
+	RepJSON['<sp_pubnet>'] = 
+	RepJSON['<port_mode_pubnet>'] = 
+	RepJSON['<ip_range_pubnet>'] = 
+	RepJSON['<vlan_pubnet>'] = 
+	RepJSON['<interface_pubnet>'] = 
+	
+	RepJSON['<sp_pr_net>'] = 
+	RepJSON['<port_mode_pr_net>'] = 
+	RepJSON['<ip_range_pr_net>'] = 
+	RepJSON['<vlan_pr_net>'] = 
+	RepJSON['<interface_pr_net>'] = 
+
+	# Access information
+	RepJSON['<fuel_ui_credentials>'] = 
+	RepJSON['<fuel_masternode_ip>'] =
+	RepJSON['<fuel_ssh_credentials>'] =
+	RepJSON['<os_node_ssh_cred>'] = 
+	RepJSON['<os_horizon_url>'] = 
+	RepJSON['<os_credentials>'] = 
+
+	# Fuel Master Node Installation
+	RepJSON['<fuel_hostname>'] = subprocess.check_output('hostname',shell=True)
+	RepJSON['<fuel_interface>'] = 
+	RepJSON['<fuel_pxe_interface>'] =
+	RepJSON['<fuel_ip_addr>'] =
+	RepJSON['<fuel_mgmt_interface>'] =
+	RepJSON['<fuel_gateway>'] =
+	RepJSON['<fuel_net_mask>'] =
+	RepJSON['<fuel_dhcp_pool_range>'] =
+	RepJSON['<fuel_domain>'] =
+	RepJSON['<fuel_search_domain>'] =
+
+# Gather network configuration information and add relevant info to JSON object
+def GetNetworkConfig(token, cluster_id, replaceList, RepJSON):
 	# Fuel API call; response gets saved to "data" as JSON object
 	data = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/clusters/' + cluster_id + '/network_configuration/neutron/',shell=True))
 	
@@ -17,15 +82,15 @@ def GetNetworkConfig(token, cluster_id, replaceList):
 	output.write(json.dumps(data, indent=4))
 	output.close() 
 
-# Gather cluster and individual node information and append relevant info to replaceList[]
-def GetNodeData(token, cluster_id, replaceList):
+# Gather cluster and individual node information and use docx to fill in NodesVMs table (or external script)
+def GetNodeData(token, cluster_id, RepJSON):
 	# Start by gathering cluster information; save API response to data as JSON object
 	data = json.loads(subprocess.check_output('curl -H "X-Auth-Token: ' + token + '" -H "Content-Type:application/json" http://localhost:8000/api/clusters/1/attributes/',shell=True))
 	
 	# Write output to a file for testing - REMOVE later
 	output = open("cluster_" + cluster_id + "_info.json", "w")
 	output.write(json.dumps(data, indent=4))
-	output.close() 
+	output.close()
 
 	# Loops through a list of node IDs (string format) to gather node and (interface?) data
 	nodeList = [1,2,3,4] #Hardcoded for now; change later
@@ -65,10 +130,10 @@ def GenDataFiles(tokenLoc):
 	except:
 		token = tokenLoc
 	
-	# Make the API call and format the output
-	
-	GetNodeData(token, '1', replaceList)
-	GetNetworkConfig(token, '1', replaceList)
+	RepJSON = {}
+	# Make the API calls and format the output from within each function
+	GetNodeData(token, '1', RepJSON)
+	GetNetworkConfig(token, '1', RepJSON)
 
 	print "\nData generation successful."
 
