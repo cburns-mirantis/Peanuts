@@ -1,0 +1,6 @@
+{
+"CUSTOMER" : "Big Customer",
+"ENV" : "Staging",
+"RELEASE" : "Liberty",
+"AUTHORS" : "Ramon Melero, rmelero@mirantis.com"
+}
