@@ -1,0 +1,14 @@
+This script is for automating the post deployment runbook.
+
+If the environment has
+
+usage: build_doc.py [-h] [-u USERNAME] [-p PASSWORD] [-su SSH_USERNAME]
+                    [-sp SSH_PASSWORD] -f HOST
+
+Defaults for web:
+
+admin / admin
+
+Defaults for ssh:
+
+root / r00tme
