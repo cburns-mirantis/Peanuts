@@ -106,48 +106,63 @@ def gen_nodes_table(nodeData):
 		nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) # Total or real?
 		nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
 		nodeRow[5].text = {str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']}
-	doc.save('5.docs/NodesVMs.docx')
+	doc.save('docs/5.nodes.docx')
 
 # 1.cover
-entries = json.load(open("entries.json"))
-entries['DATE'] = time.strftime("%d/%m/%Y")
-docx_replace("templates/1.cover.docx","docs/1.cover.docx",entries)
-print("Built docs/1.cover.docx")
+try:
+	entries = json.load(open("entries.json"))
+	entries['DATE'] = time.strftime("%d/%m/%Y")
+	docx_replace("templates/1.cover.docx","docs/1.cover.docx",entries)
+	print("Built docs/1.cover.docx")
+except:
+	print("Failed to build docs/1.cover.docx")
 
 # 2.intro
 
 # print("Built docs/2.intro.docx")
+
 # 3.architecture
 
 # print("Built docs/3.architecture.docx")
+
 # 4.network
 
 # print("Built docs/4.network.docx")
-# 5.access
-fuel = fuel_info()
-access = {
-"FUELURL": fuel['url'],
-"FUELIP": args.host,
-"WEBUSER": fuel['web']['username'],
-"WEBPW": fuel['web']['password'],
-"HORURL": fuel['horizon'],
-"SSHUSER": fuel['ssh']['username'],
-"SSHUSER": fuel['ssh']['username'],
-"SSHPW": fuel['ssh']['password']
-}
-docx_replace("templates/6.access.docx","docs/6.access.docx",access)
-print("Built docs/6.access.docx")
-# 6.fuel
 
-token = get_token()
-nodes = get_nodes(token)
-gen_nodes_table(nodes)
+# 5.nodes
+try:
+	token = get_token()
+	nodes = get_nodes(token)
+	gen_nodes_table(nodes)
+	print("Built docs/5.nodes.docx")
+except:
+	print("Failed to build docs/5.nodes.docx")
 
-#
-replace = {
-"TOTAL_NODES" : len(nodes)
-}
-for n in nodes:
-    print( n['hostname'])
+# 6.access
+try:
+	fuel = fuel_info()
+	access = {
+	"FUELURL": fuel['url'],
+	"FUELIP": args.host,
+	"WEBUSER": fuel['web']['username'],
+	"WEBPW": fuel['web']['password'],
+	"HORURL": fuel['horizon'],
+	"SSHUSER": fuel['ssh']['username'],
+	"SSHUSER": fuel['ssh']['username'],
+	"SSHPW": fuel['ssh']['password']
+	}
+	docx_replace("templates/6.access.docx","docs/6.access.docx",access)
+	print("Built docs/6.access.docx")
+except:
+	print("Failed to build docs/6.access.docx")
+# 7.fuel
+try:
+	replace = {
+	"TOTAL_NODES" : len(nodes)
+	}
+	print("Built docs/7.fuel.docx")
+except:
+	print("Failed to build docs/7.fuel.docx")
+#for n in nodes:
+#    print( n['hostname'])
 
-# print("Built docs/6.fuel.docx")
