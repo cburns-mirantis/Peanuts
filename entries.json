@@ -2,5 +2,6 @@
 "CUSTOMER" : "Big Customer",
 "ENV" : "Staging",
 "RELEASE" : "Liberty",
-"AUTHORS" : "Ramon Melero, rmelero@mirantis.com"
+"AUTHORS" : "Ramon Melero, rmelero@mirantis.com",
+"HORURL" : "172.16.0.2"
 }
