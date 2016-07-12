@@ -1,14 +1,20 @@
 This script is for automating the post deployment runbook.
 
-If the environment has
+Usage for when the environment has non-default credentials:
 
-usage: build_doc.py [-h] [-u USERNAME] [-p PASSWORD] [-su SSH_USERNAME]
-                    [-sp SSH_PASSWORD] -f HOST
+build_doc.py [-h] [-u WEB_USERNAME] [-p WEB_PASSWORD]
+        [-su SSH_USERNAME] [-sp SSH_PASSWORD] -f HOST
 
-Defaults for web:
+Defaults for web credentials:
 
 admin / admin
 
-Defaults for ssh:
+Defaults for ssh credentials:
 
 root / r00tme
+
+The minimum needed is the address to the fuel host. Can be FQDN or IP.
+
+The script can be ran from the fuel host by using localhost, however the
+
+The 'docs' directory will fill up with individual pages that can be merged.
