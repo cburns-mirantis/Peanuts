@@ -10,6 +10,9 @@
 import zipfile,time,argparse,requests,json,sys,os,paramiko
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+# Python's docx lib has an lxml dependency - do "pip3 install lxml" for Python3;
+# if build fails, try doing "apt-get install libxml2-dev libxslt-dev" (possibly as root)
+# and then re-run "pip3 install lxml"
 from docx import Document
 from docx.shared import Inches
 from docx.enum.style import WD_STYLE
@@ -111,7 +114,7 @@ def gen_nodes_table(nodeData):
 # 1.cover
 try:
 	entries = json.load(open("entries.json"))
-	entries['DATE'] = time.strftime("%d/%m/%Y")
+	entries['DATE'] = time.strftime("%d %B, %Y")
 	docx_replace("templates/1.cover.docx","docs/1.cover.docx",entries)
 	print("Built docs/1.cover.docx")
 except:
@@ -157,9 +160,11 @@ except:
 	print("Failed to build docs/6.access.docx")
 # 7.fuel
 try:
-	replace = {
+	fuel_replace = {
 	"TOTAL_NODES" : len(nodes)
+	
 	}
+	docx_replace("templates/7.fuel.docx","docs/7.fuel.docx",fuel_replace)
 	print("Built docs/7.fuel.docx")
 except:
 	print("Failed to build docs/7.fuel.docx")
