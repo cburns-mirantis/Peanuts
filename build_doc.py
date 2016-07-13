@@ -44,6 +44,20 @@ def fuel_info():
     fuel['horizon'] = "172.16.0.2" # get horizon address
     return fuel
 
+def network_info():
+    header = {"X-Auth-Token": token,"Content-Type": "application/json"}
+    # change this line to gather network info for all clusters; may need to add "nova" or "neutron" at end of URL
+    network_data = json.loads(requests.get(url="https://" + args.host + ":8443/api/clusters/1/network_configuration/", headers=header, verify=False).text)
+    network = {}
+    x = 0 # replace with iterator
+    network['network_name'] = network_data['networks'][x]['name']
+    network['speed'] = 'no data'
+    network['port_mode'] = 'no data' 
+    network['ip_range'] = network_data['networks'][x]['cidr'] # Check this - might be ['networks'][x]['ip_ranges'] instead
+    network['vlan'] = network_data['networks'][x]['vlan_start']
+    network['interface'] = 'no data'
+    network['gateway'] = network_data['networks'][x]['gateway']
+    return network
 # Get token from Keystone
 def get_token():
     header = {"Content-Type": "application/json", 'accept': 'application/json'}
@@ -89,7 +103,7 @@ def gen_nodes_table(nodeData):
 
 	# Create table for the data
 	table = doc.add_table(row_count, col_count)
-	table.style = 'TableGrid'
+	table.style = doc.styles['Table Grid']
 
 	# Generate the header row for the NodesVMS table
 	hdr_cells = table.rows[0].cells
@@ -111,6 +125,12 @@ def gen_nodes_table(nodeData):
 		nodeRow[5].text = {str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']}
 	doc.save('docs/5.nodes.docx')
 
+# Generate the token for access:
+try:
+	token = get_token()
+except:
+	print("Could not generate access token - some doc builds may fail")
+
 # 1.cover
 try:
 	entries = json.load(open("entries.json"))
@@ -129,12 +149,17 @@ except:
 # print("Built docs/3.architecture.docx")
 
 # 4.network
-
-# print("Built docs/4.network.docx")
+# Some network info available on REST: /api/clusters/<cluster number>/network_configuration/
+try:
+	network = network_info()
+	network_replace = {}
+	#docx_replace("templates/4.network.docx","docs/4.network.docx",network_replace)
+	print("Built docs/4.network.docx")
+except:
+	print("Failed to build docs/4.network.docx")
 
 # 5.nodes
 try:
-	token = get_token()
 	nodes = get_nodes(token)
 	gen_nodes_table(nodes)
 	print("Built docs/5.nodes.docx")
@@ -144,7 +169,7 @@ except:
 # 6.access
 try:
 	fuel = fuel_info()
-	access = {
+	access_replace = {
 	"FUELURL": fuel['url'],
 	"FUELIP": args.host,
 	"WEBUSER": fuel['web']['username'],
@@ -154,20 +179,17 @@ try:
 	"SSHUSER": fuel['ssh']['username'],
 	"SSHPW": fuel['ssh']['password']
 	}
-	docx_replace("templates/6.access.docx","docs/6.access.docx",access)
+	docx_replace("templates/6.access.docx","docs/6.access.docx",access_replace)
 	print("Built docs/6.access.docx")
 except:
 	print("Failed to build docs/6.access.docx")
 # 7.fuel
 try:
 	fuel_replace = {
-	"TOTAL_NODES" : len(nodes)
-	
+	"TOTAL_NODES" : len(nodes)	
 	}
 	docx_replace("templates/7.fuel.docx","docs/7.fuel.docx",fuel_replace)
 	print("Built docs/7.fuel.docx")
 except:
 	print("Failed to build docs/7.fuel.docx")
-#for n in nodes:
-#    print( n['hostname'])
 
