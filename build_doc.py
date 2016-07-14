@@ -16,15 +16,8 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from docx import Document
 from docx.shared import Inches
 from docx.enum.style import WD_STYLE
+from collections import OrderedDict
 
-# Handle Arguments
-parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
-parser.add_argument('-u', "--web-user", action="store", dest="web_username", type=str, help='Fuel Username',default="admin")
-parser.add_argument('-p', "--web-pw", action="store", dest="web_password", type=str, help='Fuel Password',default="admin")
-parser.add_argument('-su', "--ssh-user", action="store", dest="ssh_username", type=str, help='SSH Username',default="root")
-parser.add_argument('-sp', "--ssh-pw", action="store", dest="ssh_password", type=str, help='SSH Password',default="r00tme")
-parser.add_argument('-f', "--fuel", action="store", dest="host", type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
-args = parser.parse_args()
 def gen_access_table(fuel):
    row_count = 8
    col_count = 3
@@ -70,6 +63,7 @@ def gen_access_table(fuel):
    line7[1].text = fuel['web']['username'] + ' / ' + fuel['web']['password']
 
    doc.save("docs/6.access.docx")
+
 def fuel_info():
     ssh = paramiko.SSHClient()
     fuel = {}
@@ -116,7 +110,7 @@ def get_token():
 # Get nodes from Fuel API
 def get_nodes(token):
     header = {"X-Auth-Token": token,"Content-Type": "application/json"}
-    return json.loads(requests.get(url="https://" + args.host + ":8443/api/nodes",headers=header, verify=False).text)
+    return sorted(json.loads(requests.get(url="https://" + args.host + ":8443/api/nodes",headers=header, verify=False).text), key=lambda k: k['hostname'])
 
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
@@ -133,8 +127,6 @@ def docx_replace(old_file,new_file,rep):
     zout.close()
     zin.close()
 
-if not os.path.exists("docs"):
-    os.makedirs("docs")
 
 def gen_nodes_table(nodeData):
    # Generate row_count by counting the number of nodes and adding 1 for the header row
@@ -145,7 +137,7 @@ def gen_nodes_table(nodeData):
    doc = Document()
 
    # Add a heading; last digit is heading size
-   doc.add_heading('Nodes(VMs)',1)
+   doc.add_heading('Nodes(VMs)',0)
 
    # Create table for the data
    table = doc.add_table(row_count, col_count)
@@ -168,7 +160,7 @@ def gen_nodes_table(nodeData):
       nodeRow[2].text = nodeData[nodeCounter]['ip']
       nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) # Total or real?
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
-      nodeRow[5].text = {str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']}
+      nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
    doc.save('docs/5.nodes.docx')
 
 def gen_network_layout_table(networkData):
@@ -200,6 +192,20 @@ def gen_network_layout_table(networkData):
       networkRow[5].text = network['interface']
 
    doc.save('docs/4.network.docx')
+
+# Main 
+
+# Handle Arguments
+parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
+parser.add_argument('-u', "--web-user", action="store", dest="web_username", type=str, help='Fuel Username',default="admin")
+parser.add_argument('-p', "--web-pw", action="store", dest="web_password", type=str, help='Fuel Password',default="admin")
+parser.add_argument('-su', "--ssh-user", action="store", dest="ssh_username", type=str, help='SSH Username',default="root")
+parser.add_argument('-sp', "--ssh-pw", action="store", dest="ssh_password", type=str, help='SSH Password',default="r00tme")
+parser.add_argument('-f', "--fuel", action="store", dest="host", type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
+args = parser.parse_args()
+
+if not os.path.exists("docs"):
+   os.makedirs("docs")
 
 # Generate the token for access:
 try:
@@ -233,11 +239,10 @@ except:
    print("Failed to build docs/4.network.docx")
 
 # 5.nodes
-try:
-   gen_nodes_table(get_nodes(token))
-   print("Built docs/5.nodes.docx")
-except:
-   print("Failed to build docs/5.nodes.docx")
+gen_nodes_table(get_nodes(token))
+print("Built docs/5.nodes.docx")
+
+#   print("Failed to build docs/5.nodes.docx")
 
 # 6.access
 fuel = fuel_info()
