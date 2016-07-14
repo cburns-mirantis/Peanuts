@@ -46,18 +46,20 @@ def fuel_info():
 
 def network_info():
     header = {"X-Auth-Token": token,"Content-Type": "application/json"}
-    # change this line to gather network info for all clusters; may need to add "nova" or "neutron" at end of URL
-    network_data = json.loads(requests.get(url="https://" + args.host + ":8443/api/clusters/1/network_configuration/", headers=header, verify=False).text)
-    network = {}
-    x = 0 # replace with iterator
-    network['network_name'] = network_data['networks'][x]['name']
-    network['speed'] = 'no data'
-    network['port_mode'] = 'no data' 
-    network['ip_range'] = network_data['networks'][x]['cidr'] # Check this - might be ['networks'][x]['ip_ranges'] instead
-    network['vlan'] = network_data['networks'][x]['vlan_start']
-    network['interface'] = 'no data'
-    network['gateway'] = network_data['networks'][x]['gateway']
-    return network
+    network_data = json.loads(requests.get(url="https://" + args.host + ":8443/api/clusters/1/network_configuration/neutron/", headers=header, verify=False).text)
+    networks = []
+    for x in network_data['networks']:
+        network = {}
+        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
+        network['speed'] = 'no data'
+        network['port_mode'] = 'no data' 
+        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
+        network['interface'] = 'no data'
+        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
+        networks.append(network)
+    return networks
+
 # Get token from Keystone
 def get_token():
     header = {"Content-Type": "application/json", 'accept': 'application/json'}
@@ -125,6 +127,36 @@ def gen_nodes_table(nodeData):
 		nodeRow[5].text = {str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']}
 	doc.save('docs/5.nodes.docx')
 
+def gen_network_layout_table(networkData):
+	row_count = len(networkData)+1
+	col_count = 6
+
+	doc = Document()
+
+	doc.add_heading("Network Layout",0)
+
+	table = doc.add_table(row_count, col_count)
+	table.style = doc.styles['Table Grid']
+
+	hdr_cells = table.rows[0].cells
+	hdr_cells[0].text = 'Network name'
+	hdr_cells[1].text = 'Speed'
+	hdr_cells[2].text = 'Port mode'
+	hdr_cells[3].text = 'IP Range'
+	hdr_cells[4].text = 'VLAN'
+	hdr_cells[5].text = 'Interface'
+
+	for netCounter, network in enumerate(networkData):
+		networkRow = table.rows[netCounter+1].cells
+		networkRow[0].text = network['network_name']
+		networkRow[1].text = network['speed']
+		networkRow[2].text = network['port_mode']
+		networkRow[3].text = network['ip_range']
+		networkRow[4].text = network['vlan']
+		networkRow[5].text = network['interface']
+
+	doc.save('docs/4.network.docx')
+
 # Generate the token for access:
 try:
 	token = get_token()
@@ -151,17 +183,14 @@ except:
 # 4.network
 # Some network info available on REST: /api/clusters/<cluster number>/network_configuration/
 try:
-	network = network_info()
-	network_replace = {}
-	#docx_replace("templates/4.network.docx","docs/4.network.docx",network_replace)
+	gen_network_layout_table(network_info())
 	print("Built docs/4.network.docx")
 except:
 	print("Failed to build docs/4.network.docx")
 
 # 5.nodes
 try:
-	nodes = get_nodes(token)
-	gen_nodes_table(nodes)
+	gen_nodes_table(get_nodes(token))
 	print("Built docs/5.nodes.docx")
 except:
 	print("Failed to build docs/5.nodes.docx")
