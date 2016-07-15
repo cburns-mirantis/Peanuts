@@ -5,7 +5,28 @@
 # Split document into different sections
 
 # Post creation report or data output
-# store report in a per run basis
+# store report in a per run basis, folder per customer, folder per run
+# possibly store screenshots
+
+# Gather environments fuel uuid
+# Corp tools salesforce api token
+
+# Upload
+
+# process for creating new customer in salesforce
+# salesforce pm Jenni Bader
+
+# Add Entitlement & Timezone for customer info
+
+# extra tests results for support:
+
+# iostat disk IO
+# benchmarking for nodes and controllers
+# network IO
+# disk * memory space
+# sosreport is an example
+# alex dobdin
+# timmy tool
 
 import zipfile,time,argparse,requests,json,sys,os,paramiko
 from requests.packages.urllib3.exceptions import InsecureRequestWarning

@@ -15,6 +15,53 @@ root / r00tme
 
 The minimum needed is the address to the fuel host. Can be FQDN or IP.
 
-The script can be ran from the fuel host by using localhost, however the
+The script can be ran from the fuel host by using localhost, however the default interface will not be detected correctly.
 
 The 'docs' directory will fill up with individual pages that can be merged.
+
+Dependancy resolution:
+
+Ubuntu:
+1. Install pip3, libxml and unzip
+  sudo apt-get install python3-pip libxml2-dev python3-lxml unzip
+2. Install Chrome
+  wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  sudo dpkg -i google-chrome-stable_current_amd64.deb
+3. Install python dependencies
+  sudo pip3 install python-docx selenium
+4. Install chromedriver
+  https://sites.google.com/a/chromium.org/chromedriver/downloads
+  wget http://chromedriver.storage.googleapis.com/2.22/chromedriver_linux64.zip
+  unzip chromedriver_linux64.zip
+  sudo cp chromedriver /usr/local/bin/
+
+Centos:
+
+Fedora:
+
+Mac os:
+
+1. Install python3 and chromedriver
+  brew install python3 chromedriver
+2. Install xcode
+  xcode-select --install
+3. Install python dependencies
+  pip3 install python-docx selenium
+4. Install Chrome
+  https://www.google.com/chrome/browser/desktop/
+
+Windows:
+
+Vagrantfile:
+
+This vagrant file sets up the dependencies in an Ubuntu VM and enables you to run build_doc.py completely from the command line and without taking up your screen.
+
+1. git clone
+2. cd runbook
+3. vagrant up
+4. vagrant ssh -- -R 8443:10.20.0.2:8443
+5. cd /vagrant
+6. ./build_doc.py -f localhost
+7. Output files will be created in the cloned directory where the Vagrantfile is on your host
+
+NOTE: /vagrant directory is only available when starting the VM through 'vagrant up'
