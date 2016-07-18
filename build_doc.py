@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
-import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil
+import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
+from PIL import Image
 from docx import Document
 from docx.shared import Inches
 from docx.enum.style import WD_STYLE
 from collections import OrderedDict
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
 
 # Handle Arguments
 parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
@@ -17,6 +21,14 @@ parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', ty
 parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='SSH Password',default='r00tme')
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
 args = parser.parse_args()
+
+
+
+# parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
+# parser.add_argument('-u', "--username", action="store", dest="username", type=str, help='Fuel Username. Default is "admin"',default="admin")
+# parser.add_argument('-p', "--password", action="store", dest="password", type=str, help='Fuel Password. Default is "admin"',default="admin")
+# parser.add_argument('-f', "--fuel", action="store", dest="address", type=str, help='Fuel FQDN or IP.\nEx. https://fuel.customer.com:8443 or http://10.20.0.2:8000',required=True)
+# args = parser.parse_args()
 
 # Get token from Keystone
 def get_token():
@@ -214,6 +226,144 @@ try:
 except FileNotFoundError:
     os.makedirs("docs/")
 
+# Handle chromedriver dependency
+def cmd_exists(cmd):
+    return any(
+        os.access(os.path.join(path, cmd), os.X_OK)
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
+if not cmd_exists("chromedriver"):
+    sys.exit("\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/")
+
+driver = webdriver.Chrome()
+driver.set_window_size(1200, 1200)
+driver.get('https://' + args.host + ':8443')
+
+# Handle Login
+username = driver.find_element_by_name("username")
+username.send_keys(args.web_username)
+password = driver.find_element_by_name("password")
+password.send_keys(args.web_password)
+password.send_keys(Keys.RETURN)
+time.sleep(1)
+
+# Get Fuel version
+span_list = []
+for v in driver.find_elements_by_tag_name('span'):
+    span_list.append(v.text)
+version = span_list[-1][:-2]
+
+# Get environments
+clusters = []
+for a in driver.find_elements_by_tag_name('a'):
+    if "cluster/" in a.get_attribute("href"):
+        clusters.append(a.get_attribute("href"))
+
+def screenshot(page,name,fix=False):
+    if fix:
+        driver.get('https://' + args.host + ':8443')
+        time.sleep(1)
+    if page is not None:
+        driver.get(page)
+    time.sleep(1)
+    total_width = driver.execute_script("return document.body.offsetWidth")
+    total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
+
+    viewport_width = driver.execute_script("return document.body.clientWidth")
+    viewport_height = driver.execute_script("return window.innerHeight")
+    if total_height / viewport_height > 1 :
+        passes = math.ceil(total_height / viewport_height)
+        for i in range(passes):
+            if i == 0:
+                driver.save_screenshot("screens/" + name + "_0.png")
+                continue
+            driver.execute_script("window.scrollTo(0, "+ str(i*viewport_height) + ");")
+            time.sleep(.2)
+            driver.save_screenshot("screens/" + name + "_" + str(i) + ".png")
+    else:
+        driver.save_screenshot("screens/" + name + ".png")
+
+
+screenshot(None,"fuel_evironments")
+screenshot('https://' + args.host + ':8443' + "/#equipment","fuel_equipment")
+screenshot('https://' + args.host + ':8443' + "/#releases","fuel_releases")
+screenshot('https://' + args.host + ':8443' + "/#plugins","fuel_plugins")
+
+# Environments screenshots
+for c in clusters:
+    driver.get(c + "/nodes")
+    time.sleep(1)
+    nodes = []
+    for t in driver.find_elements_by_tag_name('a'):
+        if "node:" in t.get_attribute("href") and not "node:null" in t.get_attribute("href"):
+            nodes.append(t.get_attribute("href"))
+    # Skip environment if it has no nodes
+    if not nodes:
+        continue
+    for n in nodes:
+        results = re.search("cluster\/(\d+).*;node:(\d+)",n)
+        cluster = results.group(1)
+        node = results.group(2)
+        screenshot(c + "/nodes/disks/nodes:" +node,"env_" + cluster + "_node_" + node + "_disk",True )
+        screenshot(c + "/nodes/interfaces/nodes:" +node,"env_" + cluster + "_node_" + node + "_interfaces",True )
+
+    screenshot(c + "/nodes","env_" + cluster + "_nodes")
+    screenshot(c + "/dashboard","env_" + cluster + "_dashboard",True)
+    driver.get(c + "/network")
+    time.sleep(1)
+    for i in range(len(driver.find_elements_by_tag_name('a'))):
+        e = driver.find_elements_by_tag_name('a')[i]
+        if "subtab-link-" + e.text in e.get_attribute("class"):
+            e.click()
+            driver.execute_script("window.scrollTo(0,0);")
+            time.sleep(.2)
+            screenshot(None,"env_" + cluster + "_network_" + e.text)
+        if "Neutron L2" in e.text:
+            e.click()
+            time.sleep(1)
+            screenshot(None,"env_" + cluster + "_network_neutron_l2")
+        if "Neutron L3" in e.text:
+            e.click()
+            time.sleep(1)
+            screenshot(None,"env_" + cluster + "_network_neutron_l3")
+        if "Other" in e.text:
+            e.click()
+            time.sleep(1)
+            screenshot(None,"env_" + cluster + "_network_other")
+    driver.get(c + "/settings")
+    time.sleep(1)
+    for i in range(len(driver.find_elements_by_tag_name('a'))-1):
+        e = driver.find_elements_by_tag_name('a')[i]
+        if "subtab-link-" + e.text.lower().replace(" ","_") in e.get_attribute("class"):
+            e.click()
+            driver.execute_script("window.scrollTo(0,0);")
+            time.sleep(.2)
+            screenshot(None,"env_" + cluster + "_settings_" + e.text.lower().replace(" ","_"))
+
+for f in os.listdir('screens/'):
+    im = Image.open('screens/' + f)
+    im.save('screens/' + f.replace('.png','.jpg'),'JPEG')
+    os.remove('screens/' + f)
+
+files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screens/' + fn)) for fn in os.listdir('screens/')], key = lambda x: x[1].st_ctime)]
+
+template = Document('docs/cover.docx')
+for i,f in enumerate(files):
+    if '.DS_Store' in f[0]: # handle better
+        continue;
+    last = template.paragraphs[-1]
+    p = last._element
+    p.getparent().remove(p)
+    p._p = p._element = None
+    heading = template.add_heading(f[0].replace('.jpg',''), level=1)
+    heading.alignment = 1
+    template.add_picture('screens/' + f[0], width=Inches(6.5))
+    pic = template.paragraphs[-1]
+    pic.alignment = 1
+    if i != len(files)-1:
+        template.add_page_break()
+template.save('docs/screenshots.docx')
+
 # Generate the token for access:
 token = get_token()
 
@@ -239,6 +389,10 @@ runbook.add_heading()# print('Built docs/2.intro.docx')
 
 
 runbook.save('Runbook ' + entries['CUSTOMER'] + '.docx')
+
+# Cleanup
+driver.close()
+shutil.rmtree('screens/')
 # 3.architecture
 
 # print('Built docs/3.architecture.docx')
