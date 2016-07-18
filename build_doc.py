@@ -8,17 +8,19 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from PIL import Image
 from docx import Document
 from docx.shared import Inches
-from docx.enum.style import WD_STYLE
-from collections import OrderedDict
 from selenium import webdriver
+from collections import OrderedDict
+from docx.enum.style import WD_STYLE
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import NoSuchElementException
 
 # Handle Arguments
 parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
-parser.add_argument('-u', '--web-user', action='store', dest='web_username', type=str, help='Fuel Username',default='admin')
-parser.add_argument('-p', '--web-pw', action='store', dest='web_password', type=str, help='Fuel Password',default='admin')
-parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='SSH Username',default='root')
-parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='SSH Password',default='r00tme')
+parser.add_argument('-u', '--web-user', action='store', dest='web_username', type=str, help='Fuel Web Username',default='admin')
+parser.add_argument('-p', '--web-pw', action='store', dest='web_password', type=str, help='Fuel Web Password',default='admin')
+parser.add_argument('-wp', '--web-port', action='store', dest='web_port', type=str, help='Fuel Web Port',default='8443')
+parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='Fuel SSH Username',default='root')
+parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='Fuel SSH Password',default='r00tme')
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
 args = parser.parse_args()
 
@@ -26,7 +28,7 @@ args = parser.parse_args()
 def get_token():
     header = {'Content-Type': 'application/json', 'accept': 'application/json'}
     creds = {'auth': {'tenantName': args.web_username,'passwordCredentials': {'username': args.web_username,'password': args.web_password}}}
-    r = requests.post(url='https://' + args.host + ':8443/keystone/v2.0/tokens',headers=header,verify=False,json=creds)
+    r = requests.post(url='https://' + args.host + ':' + args.web_port + '/keystone/v2.0/tokens',headers=header,verify=False,json=creds)
     if r.status_code is not 200:
         sys.exit('Check Fuel username & password')
     return json.loads(r.text)['access']['token']['id']
@@ -34,7 +36,7 @@ def get_token():
 # Get nodes from Fuel API
 def get_nodes(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return sorted(json.loads(requests.get(url='https://' + args.host + ':8443/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
+    return sorted(json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
 
 def fuel_info():
     ssh = paramiko.SSHClient()
@@ -48,7 +50,7 @@ def fuel_info():
     # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
     # print(ssh_stdout.readlines())
 
-    fuel['url'] = 'https://' + args.host + ':8443'
+    fuel['url'] = 'https://' + args.host + ':' + args.web_port
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
     fuel['horizon'] = '172.16.0.2' # get horizon address
@@ -153,7 +155,7 @@ def gen_nodes_table(nodeData):
 # Gathers network information on the cluster in question using the REST interface
 def network_info(cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    network_data = json.loads(requests.get(url='https://' + args.host + ':8443/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
+    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
     networks = []
     for x in network_data['networks']:
         network = {}
@@ -208,7 +210,7 @@ def add_page(heading):
 
 def screenshot(page,name,fix=False):
     if fix:
-        driver.get('https://' + args.host + ':8443')
+        driver.get('https://' + args.host + ':' + args.web_port)
         time.sleep(1)
     if page is not None:
         driver.get(page)
@@ -236,11 +238,6 @@ try:
     os.makedirs("screens/")
 except FileNotFoundError:
     os.makedirs("screens/")
-try:
-    shutil.rmtree('docs/')
-    os.makedirs("docs/")
-except FileNotFoundError:
-    os.makedirs("docs/")
 
 # Handle chromedriver dependency
 def cmd_exists(cmd):
@@ -253,13 +250,17 @@ if not cmd_exists("chromedriver"):
 
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
-driver.get('https://' + args.host + ':8443')
+driver.get('https://' + args.host + ':' + args.web_port)
 
 # Handle Login
-username = driver.find_element_by_name("username")
-username.send_keys(args.web_username)
-password = driver.find_element_by_name("password")
-password.send_keys(args.web_password)
+try:
+    username = driver.find_element_by_name("username")
+    username.send_keys(args.web_username)
+    password = driver.find_element_by_name("password")
+    password.send_keys(args.web_password)
+except NoSuchElementException:
+    driver.close()
+    sys.exit('Login form not found. Do you have the correct address & port?')
 password.send_keys(Keys.RETURN)
 time.sleep(1)
 
@@ -276,9 +277,9 @@ for a in driver.find_elements_by_tag_name('a'):
         clusters.append(a.get_attribute("href"))
 
 screenshot(None,"fuel_evironments")
-screenshot('https://' + args.host + ':8443' + "/#equipment","fuel_equipment")
-screenshot('https://' + args.host + ':8443' + "/#releases","fuel_releases")
-screenshot('https://' + args.host + ':8443' + "/#plugins","fuel_plugins")
+screenshot('https://' + args.host + ':' + args.web_port + "/#equipment","fuel_equipment")
+screenshot('https://' + args.host + ':' + args.web_port + "/#releases","fuel_releases")
+screenshot('https://' + args.host + ':' + args.web_port + "/#plugins","fuel_plugins")
 
 # Environments screenshots
 for c in clusters:
@@ -344,17 +345,15 @@ files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screen
 try:
    entries = json.load(open('entries.json'))
    entries['DATE'] = time.strftime('%d %B, %Y')
-   docx_replace('template.docx','docs/cover.docx',entries)
+   docx_replace('template.docx','cover.docx',entries)
 except:
    print('Error building cover.')
 
-runbook = Document('docs/cover.docx')
+runbook = Document('cover.docx')
 
 add_page('Document Purpose')
 
 for i,f in enumerate(files):
-    if '.DS_Store' in f[0]: # handle better
-        continue;
     last = runbook.paragraphs[-1]
     p = last._element
     p.getparent().remove(p)
@@ -371,64 +370,27 @@ for i,f in enumerate(files):
 # Generate the token for access:
 token = get_token()
 
-# Main
-
-
-
-
-# 2.intro
-
-
-
-
 
 
 runbook.save('Runbook ' + entries['CUSTOMER'] + '.docx')
 
 # Cleanup
-
 shutil.rmtree('screens/')
-# 3.architecture
+os.remove('cover.docx')
 
-# print('Built docs/3.architecture.docx')
-
-# 4.network
-# Some network info available on REST: /api/clusters/<cluster number>/network_configuration/
 # try:
 #    gen_network_layout_table(network_info(1))
 #    print('Built docs/4.network.docx')
 # except:
 #    print('Failed to build docs/4.network.docx')
 
-# 5.nodes
 # gen_nodes_table(get_nodes(token))
-# print('Built docs/5.nodes.docx')
 
-#   print('Failed to build docs/5.nodes.docx')
-
-# 6.access
 # fuel = fuel_info()
 # gen_access_table(fuel)
-# '''
-# access_replace = {
-# 'FUELURL': fuel['url'],
-# 'FUELIP': args.host,
-# 'WEBUSER': fuel['web']['username'],
-# 'WEBPW': fuel['web']['password'],
-# 'HORURL': fuel['horizon'],
-# 'SSHUSER': fuel['ssh']['username'],
-# 'SSHUSER': fuel['ssh']['username'],
-# 'SSHPW': fuel['ssh']['password']
+#
+# fuel_replace = {
+# 'TOTAL_NODES' : len(nodes)
 # }
-# docx_replace('templates/6.access.docx','docs/6.access.docx',access_replace)
-# '''
-# print('Built docs/6.access.docx')
-# # 7.fuel
-# try:
-#    fuel_replace = {
-#    'TOTAL_NODES' : len(nodes)
-#    }
-#    docx_replace('templates/7.fuel.docx','docs/7.fuel.docx',fuel_replace)
-#    print('Built docs/7.fuel.docx')
-# except:
-#    print('Failed to build docs/7.fuel.docx')
+# docx_replace('templates/7.fuel.docx','docs/7.fuel.docx',fuel_replace)
+# print('Built docs/7.fuel.docx')
