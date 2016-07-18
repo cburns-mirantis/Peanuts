@@ -1,5 +1,40 @@
 This script is for automating the post deployment runbook.
 
+TODO:
+
+
+# Mangement Interface
+# Get DHCP Range
+# Split document into different sections
+
+# Post creation report or data output
+# store report in a per run basis, folder per customer, folder per run
+# possibly store screenshots
+
+# Gather environments fuel uuid
+# Corp tools salesforce api token
+
+# Upload
+
+# process for creating new customer in salesforce
+# salesforce pm Jenni Bader
+
+# Add Entitlement & Timezone for customer info
+
+# extra tests results for support:
+
+# iostat disk IO
+# benchmarking for nodes and controllers
+# network IO
+# disk * memory space
+# sosreport is an example
+# alex dobdin
+# timmy tool
+
+# Python's docx lib has an lxml dependency - do "pip3 install lxml" for Python3;
+# if build fails, try doing "apt-get install libxml2-dev libxslt-dev" (possibly as root)
+# and then re-run "pip3 install lxml"
+
 Usage for when the environment has non-default credentials:
 
 build_doc.py [-h] [-u WEB_USERNAME] [-p WEB_PASSWORD]

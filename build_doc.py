@@ -1,43 +1,54 @@
 #!/usr/bin/env python3
 
-# Mangement Interface
-# Get DHCP Range
-# Split document into different sections
-
-# Post creation report or data output
-# store report in a per run basis, folder per customer, folder per run
-# possibly store screenshots
-
-# Gather environments fuel uuid
-# Corp tools salesforce api token
-
-# Upload
-
-# process for creating new customer in salesforce
-# salesforce pm Jenni Bader
-
-# Add Entitlement & Timezone for customer info
-
-# extra tests results for support:
-
-# iostat disk IO
-# benchmarking for nodes and controllers
-# network IO
-# disk * memory space
-# sosreport is an example
-# alex dobdin
-# timmy tool
-
 import zipfile,time,argparse,requests,json,sys,os,paramiko
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-# Python's docx lib has an lxml dependency - do "pip3 install lxml" for Python3;
-# if build fails, try doing "apt-get install libxml2-dev libxslt-dev" (possibly as root)
-# and then re-run "pip3 install lxml"
+
 from docx import Document
 from docx.shared import Inches
 from docx.enum.style import WD_STYLE
 from collections import OrderedDict
+
+# Handle Arguments
+parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
+parser.add_argument('-u', "--web-user", action="store", dest="web_username", type=str, help='Fuel Username',default="admin")
+parser.add_argument('-p', "--web-pw", action="store", dest="web_password", type=str, help='Fuel Password',default="admin")
+parser.add_argument('-su', "--ssh-user", action="store", dest="ssh_username", type=str, help='SSH Username',default="root")
+parser.add_argument('-sp', "--ssh-pw", action="store", dest="ssh_password", type=str, help='SSH Password',default="r00tme")
+parser.add_argument('-f', "--fuel", action="store", dest="host", type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
+args = parser.parse_args()
+
+# Get token from Keystone
+def get_token():
+    header = {"Content-Type": "application/json", 'accept': 'application/json'}
+    creds = {"auth": {"tenantName": args.web_username,"passwordCredentials": {"username": args.web_username,"password": args.web_password}}}
+    r = requests.post(url="https://" + args.host + ":8443/keystone/v2.0/tokens",headers=header,verify=False,json=creds)
+    if r.status_code is not 200:
+        sys.exit("Check Fuel username & password")
+    return json.loads(r.text)['access']['token']['id']
+
+# Get nodes from Fuel API
+def get_nodes(token):
+    header = {"X-Auth-Token": token,"Content-Type": "application/json"}
+    return sorted(json.loads(requests.get(url="https://" + args.host + ":8443/api/nodes",headers=header, verify=False).text), key=lambda k: k['hostname'])
+
+def fuel_info():
+    ssh = paramiko.SSHClient()
+    fuel = {}
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("ip route ls | grep " + args.host + "| awk -e '{ print $3 }'")
+    fuel['management_iface'] = ssh_stdout.readlines()[0].replace("\n","")
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("route -n | grep UG | awk -e '{ print $2 }'")
+    fuel['gateway'] = ssh_stdout.readlines()[0].replace("\n","")
+    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("fuel plugins list")
+    # print(ssh_stdout.readlines())
+
+    fuel['url'] = "https://" + args.host + ":8443"
+    fuel['ssh'] = {"username":args.ssh_username,"password":args.ssh_password}
+    fuel['web'] = {"username":args.web_username,"password":args.web_password}
+    fuel['horizon'] = "172.16.0.2" # get horizon address
+    return fuel
 
 def gen_access_table(fuel):
    row_count = 8
@@ -85,35 +96,6 @@ def gen_access_table(fuel):
 
    doc.save("docs/6.access.docx")
 
-def fuel_info():
-    ssh = paramiko.SSHClient()
-    fuel = {}
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("ip route ls | grep " + args.host + "| awk -e '{ print $3 }'")
-    fuel['management_iface'] = ssh_stdout.readlines()[0].replace("\n","")
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("route -n | grep UG | awk -e '{ print $2 }'")
-    fuel['gateway'] = ssh_stdout.readlines()[0].replace("\n","")
-    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("fuel plugins list")
-    # print(ssh_stdout.readlines())
-
-    fuel['url'] = "https://" + args.host + ":8443"
-    fuel['ssh'] = {"username":args.ssh_username,"password":args.ssh_password}
-    fuel['web'] = {"username":args.web_username,"password":args.web_password}
-    fuel['horizon'] = "172.16.0.2" # get horizon address
-    return fuel
-
-
-# Get token from Keystone
-def get_token():
-    header = {"Content-Type": "application/json", 'accept': 'application/json'}
-    creds = {"auth": {"tenantName": args.web_username,"passwordCredentials": {"username": args.web_username,"password": args.web_password}}}
-    r = requests.post(url="https://" + args.host + ":8443/keystone/v2.0/tokens",headers=header,verify=False,json=creds)
-    if r.status_code is not 200:
-        sys.exit("Check Fuel username & password")
-    return json.loads(r.text)['access']['token']['id']
-
-
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
     zin = zipfile.ZipFile (old_file, 'r')
@@ -128,11 +110,6 @@ def docx_replace(old_file,new_file,rep):
         zout.writestr(item, buffer)
     zout.close()
     zin.close()
-
-# Get nodes from Fuel API
-def get_nodes(token):
-    header = {"X-Auth-Token": token,"Content-Type": "application/json"}
-    return sorted(json.loads(requests.get(url="https://" + args.host + ":8443/api/nodes",headers=header, verify=False).text), key=lambda k: k['hostname'])
 
 def gen_nodes_table(nodeData):
    # Generate row_count by counting the number of nodes and adding 1 for the header row
@@ -178,7 +155,7 @@ def network_info(cluster_id):
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
         network['speed'] = 'no data'
-        network['port_mode'] = 'no data' 
+        network['port_mode'] = 'no data'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
         network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
         network['interface'] = 'no data'
@@ -186,7 +163,6 @@ def network_info(cluster_id):
         networks.append(network)
     return networks
 
-# 
 def gen_network_layout_table(networkData):
    row_count = len(networkData)+1
    col_count = 6
@@ -217,26 +193,15 @@ def gen_network_layout_table(networkData):
 
    doc.save('docs/4.network.docx')
 
-# Main 
-
-# Handle Arguments
-parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
-parser.add_argument('-u', "--web-user", action="store", dest="web_username", type=str, help='Fuel Username',default="admin")
-parser.add_argument('-p', "--web-pw", action="store", dest="web_password", type=str, help='Fuel Password',default="admin")
-parser.add_argument('-su', "--ssh-user", action="store", dest="ssh_username", type=str, help='SSH Username',default="root")
-parser.add_argument('-sp', "--ssh-pw", action="store", dest="ssh_password", type=str, help='SSH Password',default="r00tme")
-parser.add_argument('-f', "--fuel", action="store", dest="host", type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
-args = parser.parse_args()
-
+# Initialiation
 if not os.path.exists("docs"):
    os.makedirs("docs")
 
 # Generate the token for access:
-try:
-   token = get_token()
-except:
-   print("Could not generate access token - some doc builds may fail")
+token = get_token()
 
+
+# Main
 # 1.cover
 try:
    entries = json.load(open("entries.json"))
@@ -288,10 +253,9 @@ print("Built docs/6.access.docx")
 # 7.fuel
 try:
    fuel_replace = {
-   "TOTAL_NODES" : len(nodes) 
+   "TOTAL_NODES" : len(nodes)
    }
    docx_replace("templates/7.fuel.docx","docs/7.fuel.docx",fuel_replace)
    print("Built docs/7.fuel.docx")
 except:
    print("Failed to build docs/7.fuel.docx")
-
