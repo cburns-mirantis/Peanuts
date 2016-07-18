@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import zipfile,time,argparse,requests,json,sys,os,paramiko
+import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -11,43 +11,43 @@ from collections import OrderedDict
 
 # Handle Arguments
 parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
-parser.add_argument('-u', "--web-user", action="store", dest="web_username", type=str, help='Fuel Username',default="admin")
-parser.add_argument('-p', "--web-pw", action="store", dest="web_password", type=str, help='Fuel Password',default="admin")
-parser.add_argument('-su', "--ssh-user", action="store", dest="ssh_username", type=str, help='SSH Username',default="root")
-parser.add_argument('-sp', "--ssh-pw", action="store", dest="ssh_password", type=str, help='SSH Password',default="r00tme")
-parser.add_argument('-f', "--fuel", action="store", dest="host", type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
+parser.add_argument('-u', '--web-user', action='store', dest='web_username', type=str, help='Fuel Username',default='admin')
+parser.add_argument('-p', '--web-pw', action='store', dest='web_password', type=str, help='Fuel Password',default='admin')
+parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='SSH Username',default='root')
+parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='SSH Password',default='r00tme')
+parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
 args = parser.parse_args()
 
 # Get token from Keystone
 def get_token():
-    header = {"Content-Type": "application/json", 'accept': 'application/json'}
-    creds = {"auth": {"tenantName": args.web_username,"passwordCredentials": {"username": args.web_username,"password": args.web_password}}}
-    r = requests.post(url="https://" + args.host + ":8443/keystone/v2.0/tokens",headers=header,verify=False,json=creds)
+    header = {'Content-Type': 'application/json', 'accept': 'application/json'}
+    creds = {'auth': {'tenantName': args.web_username,'passwordCredentials': {'username': args.web_username,'password': args.web_password}}}
+    r = requests.post(url='https://' + args.host + ':8443/keystone/v2.0/tokens',headers=header,verify=False,json=creds)
     if r.status_code is not 200:
-        sys.exit("Check Fuel username & password")
+        sys.exit('Check Fuel username & password')
     return json.loads(r.text)['access']['token']['id']
 
 # Get nodes from Fuel API
 def get_nodes(token):
-    header = {"X-Auth-Token": token,"Content-Type": "application/json"}
-    return sorted(json.loads(requests.get(url="https://" + args.host + ":8443/api/nodes",headers=header, verify=False).text), key=lambda k: k['hostname'])
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    return sorted(json.loads(requests.get(url='https://' + args.host + ':8443/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
 
 def fuel_info():
     ssh = paramiko.SSHClient()
     fuel = {}
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("ip route ls | grep " + args.host + "| awk -e '{ print $3 }'")
-    fuel['management_iface'] = ssh_stdout.readlines()[0].replace("\n","")
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("route -n | grep UG | awk -e '{ print $2 }'")
-    fuel['gateway'] = ssh_stdout.readlines()[0].replace("\n","")
-    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("fuel plugins list")
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ip route ls | grep ' + args.host + '| awk -e \'{ print $3 }\'')
+    fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('route -n | grep UG | awk -e \'{ print $2 }\'')
+    fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
+    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
     # print(ssh_stdout.readlines())
 
-    fuel['url'] = "https://" + args.host + ":8443"
-    fuel['ssh'] = {"username":args.ssh_username,"password":args.ssh_password}
-    fuel['web'] = {"username":args.web_username,"password":args.web_password}
-    fuel['horizon'] = "172.16.0.2" # get horizon address
+    fuel['url'] = 'https://' + args.host + ':8443'
+    fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
+    fuel['web'] = {'username':args.web_username,'password':args.web_password}
+    fuel['horizon'] = '172.16.0.2' # get horizon address
     return fuel
 
 def gen_access_table(fuel):
@@ -56,7 +56,7 @@ def gen_access_table(fuel):
 
    doc = Document()
 
-   doc.add_heading("Access Information",0)
+   doc.add_heading('Access Information',0)
 
    table = doc.add_table(row_count, col_count)
    table.style = doc.styles['Light Grid Accent 1']
@@ -94,7 +94,7 @@ def gen_access_table(fuel):
    line7[0].text = 'OpenStack Credentials'
    line7[1].text = fuel['web']['username'] + ' / ' + fuel['web']['password']
 
-   doc.save("docs/6.access.docx")
+   doc.save('docs/6.access.docx')
 
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
@@ -103,10 +103,10 @@ def docx_replace(old_file,new_file,rep):
     for item in zin.infolist():
         buffer = zin.read(item.filename)
         if (item.filename == 'word/document.xml'):
-            res = buffer.decode("utf-8")
+            res = buffer.decode('utf-8')
             for r in rep:
                 res = res.replace(r,rep[r])
-            buffer = res.encode("utf-8")
+            buffer = res.encode('utf-8')
         zout.writestr(item, buffer)
     zout.close()
     zin.close()
@@ -148,8 +148,8 @@ def gen_nodes_table(nodeData):
 
 # Gathers network information on the cluster in question using the REST interface
 def network_info(cluster_id):
-    header = {"X-Auth-Token": token,"Content-Type": "application/json"}
-    network_data = json.loads(requests.get(url="https://" + args.host + ":8443/api/clusters/" + str(cluster_id) + "/network_configuration/neutron/", headers=header, verify=False).text)
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    network_data = json.loads(requests.get(url='https://' + args.host + ':8443/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
     networks = []
     for x in network_data['networks']:
         network = {}
@@ -169,7 +169,7 @@ def gen_network_layout_table(networkData):
 
    doc = Document()
 
-   doc.add_heading("Network Layout",0)
+   doc.add_heading('Network Layout',0)
 
    table = doc.add_table(row_count, col_count)
    table.style = doc.styles['Light Grid Accent 1']
@@ -193,69 +193,93 @@ def gen_network_layout_table(networkData):
 
    doc.save('docs/4.network.docx')
 
+def add_page(heading):
+    runbook.add_page_break()
+    last = runbook.paragraphs[-1]
+    p = last._element
+    p.getparent().remove(p)
+    p._p = p._element = None
+    heading = runbook.add_heading(heading,level=1)
+    heading.alignment = 1
+
 # Initialiation
-if not os.path.exists("docs"):
-   os.makedirs("docs")
+try:
+    shutil.rmtree('screens/')
+    os.makedirs("screens/")
+except FileNotFoundError:
+    os.makedirs("screens/")
+try:
+    shutil.rmtree('docs/')
+    os.makedirs("docs/")
+except FileNotFoundError:
+    os.makedirs("docs/")
 
 # Generate the token for access:
 token = get_token()
 
-
 # Main
+
 # 1.cover
 try:
-   entries = json.load(open("entries.json"))
-   entries['DATE'] = time.strftime("%d %B, %Y")
-   docx_replace("templates/1.cover.docx","docs/1.cover.docx",entries)
-   print("Built docs/1.cover.docx")
+   entries = json.load(open('entries.json'))
+   entries['DATE'] = time.strftime('%d %B, %Y')
+   docx_replace('template.docx','docs/cover.docx',entries)
 except:
-   print("Failed to build docs/1.cover.docx")
+   print('Error building cover.')
+
+runbook = Document('docs/cover.docx')
+
 
 # 2.intro
+add_page('Document Purpose')
+runbook.add_heading()# print('Built docs/2.intro.docx')
 
-# print("Built docs/2.intro.docx")
 
+
+
+
+runbook.save('Runbook ' + entries['CUSTOMER'] + '.docx')
 # 3.architecture
 
-# print("Built docs/3.architecture.docx")
+# print('Built docs/3.architecture.docx')
 
 # 4.network
 # Some network info available on REST: /api/clusters/<cluster number>/network_configuration/
-try:
-   gen_network_layout_table(network_info(1))
-   print("Built docs/4.network.docx")
-except:
-   print("Failed to build docs/4.network.docx")
+# try:
+#    gen_network_layout_table(network_info(1))
+#    print('Built docs/4.network.docx')
+# except:
+#    print('Failed to build docs/4.network.docx')
 
 # 5.nodes
-gen_nodes_table(get_nodes(token))
-print("Built docs/5.nodes.docx")
+# gen_nodes_table(get_nodes(token))
+# print('Built docs/5.nodes.docx')
 
-#   print("Failed to build docs/5.nodes.docx")
+#   print('Failed to build docs/5.nodes.docx')
 
 # 6.access
-fuel = fuel_info()
-gen_access_table(fuel)
-'''
-access_replace = {
-"FUELURL": fuel['url'],
-"FUELIP": args.host,
-"WEBUSER": fuel['web']['username'],
-"WEBPW": fuel['web']['password'],
-"HORURL": fuel['horizon'],
-"SSHUSER": fuel['ssh']['username'],
-"SSHUSER": fuel['ssh']['username'],
-"SSHPW": fuel['ssh']['password']
-}
-docx_replace("templates/6.access.docx","docs/6.access.docx",access_replace)
-'''
-print("Built docs/6.access.docx")
-# 7.fuel
-try:
-   fuel_replace = {
-   "TOTAL_NODES" : len(nodes)
-   }
-   docx_replace("templates/7.fuel.docx","docs/7.fuel.docx",fuel_replace)
-   print("Built docs/7.fuel.docx")
-except:
-   print("Failed to build docs/7.fuel.docx")
+# fuel = fuel_info()
+# gen_access_table(fuel)
+# '''
+# access_replace = {
+# 'FUELURL': fuel['url'],
+# 'FUELIP': args.host,
+# 'WEBUSER': fuel['web']['username'],
+# 'WEBPW': fuel['web']['password'],
+# 'HORURL': fuel['horizon'],
+# 'SSHUSER': fuel['ssh']['username'],
+# 'SSHUSER': fuel['ssh']['username'],
+# 'SSHPW': fuel['ssh']['password']
+# }
+# docx_replace('templates/6.access.docx','docs/6.access.docx',access_replace)
+# '''
+# print('Built docs/6.access.docx')
+# # 7.fuel
+# try:
+#    fuel_replace = {
+#    'TOTAL_NODES' : len(nodes)
+#    }
+#    docx_replace('templates/7.fuel.docx','docs/7.fuel.docx',fuel_replace)
+#    print('Built docs/7.fuel.docx')
+# except:
+#    print('Failed to build docs/7.fuel.docx')
