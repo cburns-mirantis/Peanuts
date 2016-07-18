@@ -22,14 +22,6 @@ parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
 args = parser.parse_args()
 
-
-
-# parser = argparse.ArgumentParser(description='Gather Fuel Screenshots')
-# parser.add_argument('-u', "--username", action="store", dest="username", type=str, help='Fuel Username. Default is "admin"',default="admin")
-# parser.add_argument('-p', "--password", action="store", dest="password", type=str, help='Fuel Password. Default is "admin"',default="admin")
-# parser.add_argument('-f', "--fuel", action="store", dest="address", type=str, help='Fuel FQDN or IP.\nEx. https://fuel.customer.com:8443 or http://10.20.0.2:8000',required=True)
-# args = parser.parse_args()
-
 # Get token from Keystone
 def get_token():
     header = {'Content-Type': 'application/json', 'accept': 'application/json'}
@@ -214,6 +206,30 @@ def add_page(heading):
     heading = runbook.add_heading(heading,level=1)
     heading.alignment = 1
 
+def screenshot(page,name,fix=False):
+    if fix:
+        driver.get('https://' + args.host + ':8443')
+        time.sleep(1)
+    if page is not None:
+        driver.get(page)
+    time.sleep(1)
+    total_width = driver.execute_script("return document.body.offsetWidth")
+    total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
+
+    viewport_width = driver.execute_script("return document.body.clientWidth")
+    viewport_height = driver.execute_script("return window.innerHeight")
+    if total_height / viewport_height > 1 :
+        passes = math.ceil(total_height / viewport_height)
+        for i in range(passes):
+            if i == 0:
+                driver.save_screenshot("screens/" + name + "_0.png")
+                continue
+            driver.execute_script("window.scrollTo(0, "+ str(i*viewport_height) + ");")
+            time.sleep(.2)
+            driver.save_screenshot("screens/" + name + "_" + str(i) + ".png")
+    else:
+        driver.save_screenshot("screens/" + name + ".png")
+
 # Initialiation
 try:
     shutil.rmtree('screens/')
@@ -258,31 +274,6 @@ clusters = []
 for a in driver.find_elements_by_tag_name('a'):
     if "cluster/" in a.get_attribute("href"):
         clusters.append(a.get_attribute("href"))
-
-def screenshot(page,name,fix=False):
-    if fix:
-        driver.get('https://' + args.host + ':8443')
-        time.sleep(1)
-    if page is not None:
-        driver.get(page)
-    time.sleep(1)
-    total_width = driver.execute_script("return document.body.offsetWidth")
-    total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
-
-    viewport_width = driver.execute_script("return document.body.clientWidth")
-    viewport_height = driver.execute_script("return window.innerHeight")
-    if total_height / viewport_height > 1 :
-        passes = math.ceil(total_height / viewport_height)
-        for i in range(passes):
-            if i == 0:
-                driver.save_screenshot("screens/" + name + "_0.png")
-                continue
-            driver.execute_script("window.scrollTo(0, "+ str(i*viewport_height) + ");")
-            time.sleep(.2)
-            driver.save_screenshot("screens/" + name + "_" + str(i) + ".png")
-    else:
-        driver.save_screenshot("screens/" + name + ".png")
-
 
 screenshot(None,"fuel_evironments")
 screenshot('https://' + args.host + ':8443' + "/#equipment","fuel_equipment")
@@ -340,34 +331,14 @@ for c in clusters:
             time.sleep(.2)
             screenshot(None,"env_" + cluster + "_settings_" + e.text.lower().replace(" ","_"))
 
+driver.close()
+
 for f in os.listdir('screens/'):
     im = Image.open('screens/' + f)
     im.save('screens/' + f.replace('.png','.jpg'),'JPEG')
     os.remove('screens/' + f)
 
 files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screens/' + fn)) for fn in os.listdir('screens/')], key = lambda x: x[1].st_ctime)]
-
-template = Document('docs/cover.docx')
-for i,f in enumerate(files):
-    if '.DS_Store' in f[0]: # handle better
-        continue;
-    last = template.paragraphs[-1]
-    p = last._element
-    p.getparent().remove(p)
-    p._p = p._element = None
-    heading = template.add_heading(f[0].replace('.jpg',''), level=1)
-    heading.alignment = 1
-    template.add_picture('screens/' + f[0], width=Inches(6.5))
-    pic = template.paragraphs[-1]
-    pic.alignment = 1
-    if i != len(files)-1:
-        template.add_page_break()
-template.save('docs/screenshots.docx')
-
-# Generate the token for access:
-token = get_token()
-
-# Main
 
 # 1.cover
 try:
@@ -379,10 +350,34 @@ except:
 
 runbook = Document('docs/cover.docx')
 
+add_page('Document Purpose')
+
+for i,f in enumerate(files):
+    if '.DS_Store' in f[0]: # handle better
+        continue;
+    last = runbook.paragraphs[-1]
+    p = last._element
+    p.getparent().remove(p)
+    p._p = p._element = None
+    heading = runbook.add_heading(f[0].replace('.jpg',''), level=1)
+    heading.alignment = 1
+    runbook.add_picture('screens/' + f[0], width=Inches(6.5))
+    pic = runbook.paragraphs[-1]
+    pic.alignment = 1
+    if i != len(files)-1:
+        runbook.add_page_break()
+
+
+# Generate the token for access:
+token = get_token()
+
+# Main
+
+
+
 
 # 2.intro
-add_page('Document Purpose')
-runbook.add_heading()# print('Built docs/2.intro.docx')
+
 
 
 
@@ -391,7 +386,7 @@ runbook.add_heading()# print('Built docs/2.intro.docx')
 runbook.save('Runbook ' + entries['CUSTOMER'] + '.docx')
 
 # Cleanup
-driver.close()
+
 shutil.rmtree('screens/')
 # 3.architecture
 
