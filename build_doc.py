@@ -4,7 +4,6 @@ import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-
 from PIL import Image
 from docx import Document
 from docx.shared import Inches
@@ -60,12 +59,10 @@ def gen_access_table(fuel):
    row_count = 8
    col_count = 3
 
-   doc = Document()
-
-   doc.add_heading('Access Information',0)
-
-   table = doc.add_table(row_count, col_count)
-   table.style = doc.styles['Light Grid Accent 1']
+   heading = runbook.add_heading('Access Information',level=1)
+   heading.alignment = 1
+   table = runbook.add_table(row_count, col_count)
+   table.style = runbook.styles['Light Grid Accent 1']
 
    hdr_cells = table.rows[0].cells
    hdr_cells[0].text = 'Host'
@@ -100,8 +97,6 @@ def gen_access_table(fuel):
    line7[0].text = 'OpenStack Credentials'
    line7[1].text = fuel['web']['username'] + ' / ' + fuel['web']['password']
 
-   doc.save('docs/6.access.docx')
-
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
     zin = zipfile.ZipFile (old_file, 'r')
@@ -122,15 +117,13 @@ def gen_nodes_table(nodeData):
    row_count = len(nodeData)+1
    col_count = 6
 
-   # Create (technically open) a new document
-   doc = Document()
-
    # Add a heading; last digit is heading size
-   doc.add_heading('Nodes(VMs)',0)
+   heading = runbook.add_heading('Nodes(VMs)',level=1)
+   heading.alignment = 1
 
    # Create table for the data
-   table = doc.add_table(row_count, col_count)
-   table.style = doc.styles['Light Grid Accent 1']
+   table = runbook.add_table(row_count, col_count)
+   table.style = runbook.styles['Light Grid Accent 1']
 
    # Generate the header row for the NodesVMS table
    hdr_cells = table.rows[0].cells
@@ -150,7 +143,6 @@ def gen_nodes_table(nodeData):
       nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) # Total or real?
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
-   doc.save('docs/5.nodes.docx')
 
 # Gathers network information on the cluster in question using the REST interface
 def network_info(cluster_id):
@@ -170,25 +162,23 @@ def network_info(cluster_id):
     return networks
 
 def gen_network_layout_table(networkData):
-   row_count = len(networkData)+1
-   col_count = 6
+    row_count = len(networkData)+1
+    col_count = 6
 
-   doc = Document()
+    runbook.add_heading('Network Layout',level=1)
 
-   doc.add_heading('Network Layout',0)
+    runbook.add_table(row_count, col_count)
+    runbook.styles['Light Grid Accent 1']
 
-   table = doc.add_table(row_count, col_count)
-   table.style = doc.styles['Light Grid Accent 1']
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Network name'
+    hdr_cells[1].text = 'Speed'
+    hdr_cells[2].text = 'Port mode'
+    hdr_cells[3].text = 'IP Range'
+    hdr_cells[4].text = 'VLAN'
+    hdr_cells[5].text = 'Interface'
 
-   hdr_cells = table.rows[0].cells
-   hdr_cells[0].text = 'Network name'
-   hdr_cells[1].text = 'Speed'
-   hdr_cells[2].text = 'Port mode'
-   hdr_cells[3].text = 'IP Range'
-   hdr_cells[4].text = 'VLAN'
-   hdr_cells[5].text = 'Interface'
-
-   for netCounter, network in enumerate(networkData):
+    for netCounter, network in enumerate(networkData):
       networkRow = table.rows[netCounter+1].cells
       networkRow[0].text = network['network_name']
       networkRow[1].text = network['speed']
@@ -197,17 +187,6 @@ def gen_network_layout_table(networkData):
       networkRow[4].text = network['vlan']
       networkRow[5].text = network['interface']
 
-   doc.save('docs/4.network.docx')
-
-def add_page(heading):
-    runbook.add_page_break()
-    last = runbook.paragraphs[-1]
-    p = last._element
-    p.getparent().remove(p)
-    p._p = p._element = None
-    heading = runbook.add_heading(heading,level=1)
-    heading.alignment = 1
-
 def screenshot(page,name,fix=False):
     if fix:
         driver.get('https://' + args.host + ':' + args.web_port)
@@ -215,48 +194,59 @@ def screenshot(page,name,fix=False):
     if page is not None:
         driver.get(page)
     time.sleep(1)
-    total_width = driver.execute_script("return document.body.offsetWidth")
-    total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
+    total_width = driver.execute_script('return document.body.offsetWidth')
+    total_height = driver.execute_script('return document.body.parentNode.scrollHeight')
 
-    viewport_width = driver.execute_script("return document.body.clientWidth")
-    viewport_height = driver.execute_script("return window.innerHeight")
-    if total_height / viewport_height > 1 :
+    viewport_width = driver.execute_script('return document.body.clientWidth')
+    viewport_height = driver.execute_script('return window.innerHeight')
+
+    if total_height / viewport_height > 1 and total_height - viewport_height > 100 :
         passes = math.ceil(total_height / viewport_height)
         for i in range(passes):
             if i == 0:
-                driver.save_screenshot("screens/" + name + "_0.png")
+                driver.save_screenshot('screens/' + name + '_0.png')
                 continue
-            driver.execute_script("window.scrollTo(0, "+ str(i*viewport_height) + ");")
+            driver.execute_script('window.scrollTo(0, '+ str(i*viewport_height) + ');')
             time.sleep(.2)
-            driver.save_screenshot("screens/" + name + "_" + str(i) + ".png")
+            driver.save_screenshot('screens/' + name + '_' + str(i) + '.png')
+    elif total_height - viewport_height < 100:
+        driver.execute_script('window.scrollTo(0, '+ str(viewport_height) + ');')
+        time.sleep(.2)
+        driver.save_screenshot('screens/' + name + '.png')
     else:
-        driver.save_screenshot("screens/" + name + ".png")
+        driver.save_screenshot('screens/' + name + '.png')
+
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text.lower()
+            for text in re.split(re.compile('([0-9]+)'), s)]
 
 # Initialiation
 try:
     shutil.rmtree('screens/')
-    os.makedirs("screens/")
+    os.makedirs('screens/')
 except FileNotFoundError:
-    os.makedirs("screens/")
+    os.makedirs('screens/')
 
 # Handle chromedriver dependency
 def cmd_exists(cmd):
     return any(
         os.access(os.path.join(path, cmd), os.X_OK)
-        for path in os.environ["PATH"].split(os.pathsep)
+        for path in os.environ['PATH'].split(os.pathsep)
     )
-if not cmd_exists("chromedriver"):
-    sys.exit("\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/")
+if not cmd_exists('chromedriver'):
+    sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
 
+token = get_token()
+nodedata = get_nodes(token)
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
 
 # Handle Login
 try:
-    username = driver.find_element_by_name("username")
+    username = driver.find_element_by_name('username')
     username.send_keys(args.web_username)
-    password = driver.find_element_by_name("password")
+    password = driver.find_element_by_name('password')
     password.send_keys(args.web_password)
 except NoSuchElementException:
     driver.close()
@@ -273,124 +263,109 @@ version = span_list[-1][:-2]
 # Get environments
 clusters = []
 for a in driver.find_elements_by_tag_name('a'):
-    if "cluster/" in a.get_attribute("href"):
-        clusters.append(a.get_attribute("href"))
+    if 'cluster/' in a.get_attribute('href'):
+        clusters.append(a.get_attribute('href'))
 
-screenshot(None,"fuel_evironments")
-screenshot('https://' + args.host + ':' + args.web_port + "/#equipment","fuel_equipment")
-screenshot('https://' + args.host + ':' + args.web_port + "/#releases","fuel_releases")
-screenshot('https://' + args.host + ':' + args.web_port + "/#plugins","fuel_plugins")
+screenshot(None,'fuel_evironments')
+screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','fuel_equipment')
+screenshot('https://' + args.host + ':' + args.web_port + '/#releases','fuel_releases')
+screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','fuel_plugins')
 
 # Environments screenshots
 for c in clusters:
-    driver.get(c + "/nodes")
+    driver.get(c + '/nodes')
+
     time.sleep(1)
     nodes = []
     for t in driver.find_elements_by_tag_name('a'):
-        if "node:" in t.get_attribute("href") and not "node:null" in t.get_attribute("href"):
-            nodes.append(t.get_attribute("href"))
+        if 'node:' in t.get_attribute('href') and not 'node:null' in t.get_attribute('href'):
+            nodes.append(t.get_attribute('href'))
     # Skip environment if it has no nodes
     if not nodes:
         continue
-    for n in nodes:
-        results = re.search("cluster\/(\d+).*;node:(\d+)",n)
+    for i,n in enumerate(nodes):
+        results = re.search('cluster\/(\d+).*;node:(\d+)',n)
         cluster = results.group(1)
         node = results.group(2)
-        screenshot(c + "/nodes/disks/nodes:" +node,"env_" + cluster + "_node_" + node + "_disk",True )
-        screenshot(c + "/nodes/interfaces/nodes:" +node,"env_" + cluster + "_node_" + node + "_interfaces",True )
+        if i == 0:
+            screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
+            screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
+        screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disk',True )
+        screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
 
-    screenshot(c + "/nodes","env_" + cluster + "_nodes")
-    screenshot(c + "/dashboard","env_" + cluster + "_dashboard",True)
-    driver.get(c + "/network")
+
+    driver.get(c + '/network')
     time.sleep(1)
     for i in range(len(driver.find_elements_by_tag_name('a'))):
         e = driver.find_elements_by_tag_name('a')[i]
-        if "subtab-link-" + e.text in e.get_attribute("class"):
+        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
             e.click()
-            driver.execute_script("window.scrollTo(0,0);")
+            driver.execute_script('window.scrollTo(0,0);')
             time.sleep(.2)
-            screenshot(None,"env_" + cluster + "_network_" + e.text)
-        if "Neutron L2" in e.text:
+            screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'))
+        if 'Other' in e.text:
             e.click()
             time.sleep(1)
-            screenshot(None,"env_" + cluster + "_network_neutron_l2")
-        if "Neutron L3" in e.text:
-            e.click()
-            time.sleep(1)
-            screenshot(None,"env_" + cluster + "_network_neutron_l3")
-        if "Other" in e.text:
-            e.click()
-            time.sleep(1)
-            screenshot(None,"env_" + cluster + "_network_other")
-    driver.get(c + "/settings")
+            screenshot(None,'env_' + cluster + '_network_other')
+    driver.get(c + '/settings')
     time.sleep(1)
     for i in range(len(driver.find_elements_by_tag_name('a'))-1):
         e = driver.find_elements_by_tag_name('a')[i]
-        if "subtab-link-" + e.text.lower().replace(" ","_") in e.get_attribute("class"):
+        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
             e.click()
-            driver.execute_script("window.scrollTo(0,0);")
+            driver.execute_script('window.scrollTo(0,0);')
             time.sleep(.2)
-            screenshot(None,"env_" + cluster + "_settings_" + e.text.lower().replace(" ","_"))
+            screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
 
 driver.close()
 
-for f in os.listdir('screens/'):
-    im = Image.open('screens/' + f)
-    im.save('screens/' + f.replace('.png','.jpg'),'JPEG')
-    os.remove('screens/' + f)
-
 files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screens/' + fn)) for fn in os.listdir('screens/')], key = lambda x: x[1].st_ctime)]
 
-# 1.cover
-try:
-   entries = json.load(open('entries.json'))
-   entries['DATE'] = time.strftime('%d %B, %Y')
-   docx_replace('template.docx','cover.docx',entries)
-except:
-   print('Error building cover.')
+for i,f in enumerate(files):
+    im = Image.open('screens/' + f[0])
+    im.save('screens/' + str(i) + '_' + f[0].replace('.png','.jpg'),'JPEG')
+    os.remove('screens/' + f[0])
+
+# Build cover page
+
+entries = json.load(open('entries.json'))
+entries['DATE'] = time.strftime('%d %B, %Y')
+docx_replace('template.docx','cover.docx',entries)
 
 runbook = Document('cover.docx')
 
-add_page('Document Purpose')
+# Generate the token for access
+
+fuel = fuel_info()
+gen_access_table(fuel)
+runbook.add_page_break()
+
+gen_nodes_table(nodedata)
+# runbook.add_page_break()
+
+# gen_network_layout_table(network_info(1))
+
+runbook.add_page_break()
+runbook.add_page_break()
+
+files = os.listdir('screens/')
+files.sort(key=natural_sort_key)
 
 for i,f in enumerate(files):
     last = runbook.paragraphs[-1]
     p = last._element
     p.getparent().remove(p)
     p._p = p._element = None
-    heading = runbook.add_heading(f[0].replace('.jpg',''), level=1)
+    heading = runbook.add_heading(f.replace('.jpg',''), level=1)
     heading.alignment = 1
-    runbook.add_picture('screens/' + f[0], width=Inches(6.5))
+    runbook.add_picture('screens/' + f, width=Inches(6.5))
     pic = runbook.paragraphs[-1]
     pic.alignment = 1
     if i != len(files)-1:
         runbook.add_page_break()
 
-
-# Generate the token for access:
-token = get_token()
-
-
-
-runbook.save('Runbook ' + entries['CUSTOMER'] + '.docx')
+runbook.save('Runbook - ' + entries['CUSTOMER'] + '.docx')
 
 # Cleanup
 shutil.rmtree('screens/')
 os.remove('cover.docx')
-
-# try:
-#    gen_network_layout_table(network_info(1))
-#    print('Built docs/4.network.docx')
-# except:
-#    print('Failed to build docs/4.network.docx')
-
-# gen_nodes_table(get_nodes(token))
-
-# fuel = fuel_info()
-# gen_access_table(fuel)
-#
-# fuel_replace = {
-# 'TOTAL_NODES' : len(nodes)
-# }
-# docx_replace('templates/7.fuel.docx','docs/7.fuel.docx',fuel_replace)
-# print('Built docs/7.fuel.docx')
