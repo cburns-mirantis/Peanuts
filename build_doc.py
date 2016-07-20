@@ -46,13 +46,15 @@ def fuel_info():
     fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('route -n | grep UG | awk -e \'{ print $2 }\'')
     fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
-    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
+    #fuel['env_list'] = ssh_stdout.readlines()[0].replace('\n','')
     # print(ssh_stdout.readlines())
 
     fuel['url'] = 'https://' + args.host + ':' + args.web_port
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
     fuel['horizon'] = '172.16.0.2' # get horizon address
+    #fuel['env_list'] = 
     return fuel
 
 def gen_access_table(fuel):
@@ -161,14 +163,15 @@ def network_info(cluster_id):
         networks.append(network)
     return networks
 
-def gen_network_layout_table(networkData):
+def gen_network_layout_table(networkData, env):
     row_count = len(networkData)+1
     col_count = 6
 
-    runbook.add_heading('Network Layout',level=1)
+    heading = runbook.add_heading('Network Layout - Environment ' + env,level=1)
+    heading.alignment = 1
 
-    runbook.add_table(row_count, col_count)
-    runbook.styles['Light Grid Accent 1']
+    table = runbook.add_table(row_count, col_count)
+    table.style = runbook.styles['Light Grid Accent 1']
 
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Network name'
@@ -186,6 +189,8 @@ def gen_network_layout_table(networkData):
       networkRow[3].text = network['ip_range']
       networkRow[4].text = network['vlan']
       networkRow[5].text = network['interface']
+
+    runbook.add_page_break()
 
 def screenshot(page,name,fix=False):
     if fix:
@@ -341,9 +346,8 @@ gen_access_table(fuel)
 runbook.add_page_break()
 
 gen_nodes_table(nodedata)
-# runbook.add_page_break()
-
-# gen_network_layout_table(network_info(1))
+for env_num, cluster in enumerate(clusters, 1):
+   gen_network_layout_table(network_info(str(env_num)),str(env_num))
 
 runbook.add_page_break()
 runbook.add_page_break()
@@ -364,7 +368,7 @@ for i,f in enumerate(files):
     if i != len(files)-1:
         runbook.add_page_break()
 
-runbook.save('Runbook - ' + entries['CUSTOMER'] + '.docx')
+runbook.save('Runbook for ' + entries['CUSTOMER'] + '.docx')
 
 # Cleanup
 shutil.rmtree('screens/')
