@@ -47,7 +47,8 @@ def fuel_info():
     fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('route -n | grep UG | awk -e \'{ print $2 }\'')
     fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
-    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
+    #fuel['env_list'] = ssh_stdout.readlines()[0].replace('\n','')
     # print(ssh_stdout.readlines())
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
     fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
@@ -56,6 +57,7 @@ def fuel_info():
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
     fuel['horizon'] = '172.16.0.2' # get horizon address
+    #fuel['env_list'] =
     return fuel
 
 # Gathers network information on the cluster in question using the REST interface
@@ -278,15 +280,35 @@ def gen_nodes_table(nodeData):
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
 
+# Gathers network information on the cluster in question using the REST interface
+def network_info(cluster_id):
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
+    networks = []
+    for x in network_data['networks']:
+        network = {}
+        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
+        network['speed'] = 'no data'
+        network['port_mode'] = 'no data'
+        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
+        network['interface'] = 'no data'
+        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
+        networks.append(network)
+    print(networks)
+    return networks
+
 # Generate 'Network Layout' table
-def gen_network_layout_table(networkData):
+
+def gen_network_layout_table(networkData, env):
     row_count = len(networkData)+1
     col_count = 6
 
-    runbook.add_heading('Network Layout',level=1)
+    heading = runbook.add_heading('Network Layout - Environment ' + env,level=1)
+    heading.alignment = 1
 
-    runbook.add_table(row_count, col_count)
-    runbook.styles['Light Grid Accent 1']
+    table = runbook.add_table(row_count, col_count)
+    table.style = runbook.styles['Light Grid Accent 1']
 
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Network name'
@@ -297,13 +319,16 @@ def gen_network_layout_table(networkData):
     hdr_cells[5].text = 'Interface'
 
     for netCounter, network in enumerate(networkData):
-      networkRow = table.rows[netCounter+1].cells
-      networkRow[0].text = network['network_name']
-      networkRow[1].text = network['speed']
-      networkRow[2].text = network['port_mode']
-      networkRow[3].text = network['ip_range']
-      networkRow[4].text = network['vlan']
-      networkRow[5].text = network['interface']
+        networkRow = table.rows[netCounter+1].cells
+        networkRow[0].text = network['network_name']
+        networkRow[1].text = network['speed']
+        networkRow[2].text = network['port_mode']
+        networkRow[3].text = network['ip_range']
+        networkRow[4].text = network['vlan']
+        networkRow[5].text = network['interface']
+
+
+    runbook.add_page_break()
 
 # Handle webpage screenshots
 def screenshot(page,name,fix=False):
@@ -408,53 +433,53 @@ for a in driver.find_elements_by_tag_name('a'):
 screenshot(None,'Environments')
 screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','Equipment')
 screenshot('https://' + args.host + ':' + args.web_port + '/#releases','Releases')
-screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins')
-
-# Environments screenshots
-for c in clusters:
-    driver.get(c + '/nodes')
-
-    time.sleep(1)
-    nodes = []
-    for t in driver.find_elements_by_tag_name('a'):
-        if 'node:' in t.get_attribute('href') and not 'node:null' in t.get_attribute('href'):
-            nodes.append(t.get_attribute('href'))
-    # Skip environment if it has no nodes
-    if not nodes:
-        continue
-    for i,n in enumerate(nodes):
-        results = re.search('cluster\/(\d+).*;node:(\d+)',n)
-        cluster = results.group(1)
-        node = results.group(2)
-        if i == 0:
-            screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
-            screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
-        screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disks',True )
-        screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
-
-
-    driver.get(c + '/network')
-    time.sleep(1)
-    for i in range(len(driver.find_elements_by_tag_name('a'))):
-        e = driver.find_elements_by_tag_name('a')[i]
-        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
-            e.click()
-            driver.execute_script('window.scrollTo(0,0);')
-            time.sleep(.2)
-            screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'))
-        if 'Other' in e.text:
-            e.click()
-            time.sleep(1)
-            screenshot(None,'env_' + cluster + '_network_other')
-    driver.get(c + '/settings')
-    time.sleep(1)
-    for i in range(len(driver.find_elements_by_tag_name('a'))-1):
-        e = driver.find_elements_by_tag_name('a')[i]
-        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
-            e.click()
-            driver.execute_script('window.scrollTo(0,0);')
-            time.sleep(.2)
-            screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
+# screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins')
+#
+# # Environments screenshots
+# for c in clusters:
+#     driver.get(c + '/nodes')
+#
+#     time.sleep(1)
+#     nodes = []
+#     for t in driver.find_elements_by_tag_name('a'):
+#         if 'node:' in t.get_attribute('href') and not 'node:null' in t.get_attribute('href'):
+#             nodes.append(t.get_attribute('href'))
+#     # Skip environment if it has no nodes
+#     if not nodes:
+#         continue
+#     for i,n in enumerate(nodes):
+#         results = re.search('cluster\/(\d+).*;node:(\d+)',n)
+#         cluster = results.group(1)
+#         node = results.group(2)
+#         if i == 0:
+#             screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
+#             screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
+#         screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disks',True )
+#         screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
+#
+#
+#     driver.get(c + '/network')
+#     time.sleep(1)
+#     for i in range(len(driver.find_elements_by_tag_name('a'))):
+#         e = driver.find_elements_by_tag_name('a')[i]
+#         if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
+#             e.click()
+#             driver.execute_script('window.scrollTo(0,0);')
+#             time.sleep(.2)
+#             screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'))
+#         if 'Other' in e.text:
+#             e.click()
+#             time.sleep(1)
+#             screenshot(None,'env_' + cluster + '_network_other')
+#     driver.get(c + '/settings')
+#     time.sleep(1)
+#     for i in range(len(driver.find_elements_by_tag_name('a'))-1):
+#         e = driver.find_elements_by_tag_name('a')[i]
+#         if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
+#             e.click()
+#             driver.execute_script('window.scrollTo(0,0);')
+#             time.sleep(.2)
+#             screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
 
 # Close browser session
 driver.close()
@@ -487,12 +512,17 @@ gen_access_table(fuel)
 runbook.add_page_break()
 
 gen_nodes_table(nodedata)
-# runbook.add_page_break()
 
-# gen_network_layout_table(network_info(1))
 runbook.add_page_break()
 
 gen_support_table()
+
+runbook.add_page_break()
+
+for cluster in clusters:
+    results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
+    cluster_id = results.group(2)
+    gen_network_layout_table(network_info(str(cluster_id)),cluster_id)
 
 runbook.add_page_break()
 runbook.add_page_break()
@@ -515,7 +545,7 @@ for i,f in enumerate(files):
     if i != len(files)-1:
         runbook.add_page_break()
 
-runbook.save('Runbook - ' + entries['COVER']['CUSTOMER'] + '.docx')
+runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
 
 # Cleanup
 shutil.rmtree('screens/')
