@@ -56,7 +56,6 @@ def fuel_info():
     fuel['url'] = 'https://' + args.host + ':' + args.web_port
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
-    fuel['horizon'] = '172.16.0.2' # get horizon address
     #fuel['env_list'] =
     return fuel
 
@@ -433,53 +432,53 @@ for a in driver.find_elements_by_tag_name('a'):
 screenshot(None,'Environments')
 screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','Equipment')
 screenshot('https://' + args.host + ':' + args.web_port + '/#releases','Releases')
-# screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins')
-#
-# # Environments screenshots
-# for c in clusters:
-#     driver.get(c + '/nodes')
-#
-#     time.sleep(1)
-#     nodes = []
-#     for t in driver.find_elements_by_tag_name('a'):
-#         if 'node:' in t.get_attribute('href') and not 'node:null' in t.get_attribute('href'):
-#             nodes.append(t.get_attribute('href'))
-#     # Skip environment if it has no nodes
-#     if not nodes:
-#         continue
-#     for i,n in enumerate(nodes):
-#         results = re.search('cluster\/(\d+).*;node:(\d+)',n)
-#         cluster = results.group(1)
-#         node = results.group(2)
-#         if i == 0:
-#             screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
-#             screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
-#         screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disks',True )
-#         screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
-#
-#
-#     driver.get(c + '/network')
-#     time.sleep(1)
-#     for i in range(len(driver.find_elements_by_tag_name('a'))):
-#         e = driver.find_elements_by_tag_name('a')[i]
-#         if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
-#             e.click()
-#             driver.execute_script('window.scrollTo(0,0);')
-#             time.sleep(.2)
-#             screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'))
-#         if 'Other' in e.text:
-#             e.click()
-#             time.sleep(1)
-#             screenshot(None,'env_' + cluster + '_network_other')
-#     driver.get(c + '/settings')
-#     time.sleep(1)
-#     for i in range(len(driver.find_elements_by_tag_name('a'))-1):
-#         e = driver.find_elements_by_tag_name('a')[i]
-#         if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
-#             e.click()
-#             driver.execute_script('window.scrollTo(0,0);')
-#             time.sleep(.2)
-#             screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
+screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins')
+
+# Environments screenshots
+for c in clusters:
+    driver.get(c + '/nodes')
+
+    time.sleep(1)
+    nodes = []
+    for t in driver.find_elements_by_tag_name('a'):
+        if 'node:' in t.get_attribute('href') and not 'node:null' in t.get_attribute('href'):
+            nodes.append(t.get_attribute('href'))
+    # Skip environment if it has no nodes
+    if not nodes:
+        continue
+    for i,n in enumerate(nodes):
+        results = re.search('cluster\/(\d+).*;node:(\d+)',n)
+        cluster = results.group(1)
+        node = results.group(2)
+        if i == 0:
+            screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
+            screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
+        screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disks',True )
+        screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
+
+
+    driver.get(c + '/network')
+    time.sleep(1)
+    for i in range(len(driver.find_elements_by_tag_name('a'))):
+        e = driver.find_elements_by_tag_name('a')[i]
+        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
+            e.click()
+            driver.execute_script('window.scrollTo(0,0);')
+            time.sleep(.2)
+            screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'))
+        if 'Other' in e.text:
+            e.click()
+            time.sleep(1)
+            screenshot(None,'env_' + cluster + '_network_other')
+    driver.get(c + '/settings')
+    time.sleep(1)
+    for i in range(len(driver.find_elements_by_tag_name('a'))-1):
+        e = driver.find_elements_by_tag_name('a')[i]
+        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
+            e.click()
+            driver.execute_script('window.scrollTo(0,0);')
+            time.sleep(.2)
+            screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
 
 # Close browser session
 driver.close()
