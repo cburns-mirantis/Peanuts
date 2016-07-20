@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re
+import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re,configparser
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -37,6 +37,7 @@ def get_nodes(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     return sorted(json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
 
+# Get information about the Fuel Instance through SSH
 def fuel_info():
     ssh = paramiko.SSHClient()
     fuel = {}
@@ -48,6 +49,8 @@ def fuel_info():
     fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
     # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
     # print(ssh_stdout.readlines())
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
+    fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
 
     fuel['url'] = 'https://' + args.host + ':' + args.web_port
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
@@ -55,9 +58,27 @@ def fuel_info():
     fuel['horizon'] = '172.16.0.2' # get horizon address
     return fuel
 
+# Gathers network information on the cluster in question using the REST interface
+def network_info(cluster_id):
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
+    networks = []
+    for x in network_data['networks']:
+        network = {}
+        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
+        network['speed'] = 'no data'
+        network['port_mode'] = 'no data'
+        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
+        network['interface'] = 'no data'
+        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
+        networks.append(network)
+    return networks
+
+# Generate 'Access Information' table
 def gen_access_table(fuel):
    row_count = 8
-   col_count = 3
+   col_count = 2
 
    heading = runbook.add_heading('Access Information',level=1)
    heading.alignment = 1
@@ -65,9 +86,9 @@ def gen_access_table(fuel):
    table.style = runbook.styles['Light Grid Accent 1']
 
    hdr_cells = table.rows[0].cells
-   hdr_cells[0].text = 'Host'
-   hdr_cells[1].text = 'IP address'
-   hdr_cells[2].text = 'Comment(s)'
+   hdr_cells[0].text = ''
+   hdr_cells[1].text = ''
+   # hdr_cells[2].text = 'Comment(s)'
 
    line1 = table.rows[1].cells
    line1[0].text = 'Fuel UI Master Node URL'
@@ -82,20 +103,132 @@ def gen_access_table(fuel):
    line3[1].text = args.host
 
    line4 = table.rows[4].cells
-   line4[0].text = 'Fuel SSH Credentials (console)'
+   line4[0].text = 'Fuel SSH Credentials'
    line4[1].text = fuel['ssh']['username'] + ' / ' + fuel['ssh']['password']
 
    line5 = table.rows[5].cells
-   line5[0].text = 'OpenStack Nodes SSH Credentials (console)'
-   #line5[1].text = fuel['ssh']['username'] + ' / ' + fuel['ssh']['password']
+   line5[0].text = 'OpenStack Nodes SSH Credentials'
+   line5[1].text = fuel['ssh']['username'] + ' / ' + fuel['ssh']['password']
 
    line6 = table.rows[6].cells
    line6[0].text = 'OpenStack Horizon URL'
-   line6[1].text = fuel['horizon']
+   line6[1].text = entries['ACCESS']['HOR_URL']
 
    line7 = table.rows[7].cells
-   line7[0].text = 'OpenStack Credentials'
-   line7[1].text = fuel['web']['username'] + ' / ' + fuel['web']['password']
+   line7[0].text = 'OpenStack Horizon Credentials'
+   line7[1].text = entries['ACCESS']['HOR_USER'] + ' / ' + entries['ACCESS']['HOR_PASS']
+
+# Handle entitlement table based on Support entitlement level
+def entitlement_handler(entitlement):
+    support_services = {}
+    if int(entitlement) is 1:
+        support_services =  {
+            'ENTITLEMENT':'8 x 5',
+            'E_MIN_TERM':'1 Year',
+            'E_DAYS':'Monday - Friday',
+            'E_HOURS':'9am - 5pm',
+            'E_SEV1':'4 Business Hours',
+            'E_SEV2':'8 Business Hours',
+            'E_SEV3':'24 Business Hours',
+            'E_SEV4':'48 Business Hours',
+        }
+    if int(entitlement) is 2:
+        support_services =  {
+            'ENTITLEMENT':'24 x 7',
+            'E_MIN_TERM':'1 Year',
+            'E_DAYS':'24 x 7',
+            'E_HOURS':'24 x 7',
+            'E_SEV1':'1 Business Hour',
+            'E_SEV2':'2 Business Hours',
+            'E_SEV3':'4 Business Hours',
+            'E_SEV4':'8 Business Hours',
+        }
+    if int(entitlement) is 3:
+        support_services =  {
+            'ENTITLEMENT':'24 x 7',
+            'E_MIN_TERM':'1 Year',
+            'E_DAYS':'24 x 7',
+            'E_HOURS':'24 x 7',
+            'E_SEV1':'15 Minutes',
+            'E_SEV2':'1 Business Hour',
+            'E_SEV3':'4 Business Hours',
+            'E_SEV4':'8 Business Hours',
+        }
+    return support_services
+
+# Generate 'Support Information' table
+def gen_support_table():
+    row_count = 14
+    col_count = 2
+    if int(entries['SUPPORT']['ENTITLEMENT']) is 3:
+        row_count += 1
+    entitlements = entitlement_handler(entries['SUPPORT']['ENTITLEMENT'])
+
+    heading = runbook.add_heading('Support Information',level=1)
+    heading.alignment = 1
+    table = runbook.add_table(row_count, col_count)
+    table.style = runbook.styles['Light Grid Accent 1']
+
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = ''
+    hdr_cells[1].text = ''
+
+    line1 = table.rows[1].cells
+    line1[0].text = 'Customer Name'
+    line1[1].text = entries['COVER']['CUSTOMER']
+
+    line2 = table.rows[2].cells
+    line2[0].text = 'Environment ID'
+    line2[1].text = fuel['UUID']
+
+    line3 = table.rows[3].cells
+    line3[0].text = 'Support Entitlement Package'
+    line3[1].text = entitlements['ENTITLEMENT']
+
+    line4 = table.rows[4].cells
+    line4[0].text = 'Days of Direct Support'
+    line4[1].text = entitlements['E_DAYS']
+
+    line5 = table.rows[5].cells
+    line5[0].text = 'Hours of Direct Support'
+    line5[1].text = entitlements['E_HOURS']
+
+    line6 = table.rows[6].cells
+    line6[0].text = 'Support Timezone'
+    line6[1].text = entries['SUPPORT']['E_TIMEZONE']
+
+    line7 = table.rows[7].cells
+    line7[0].text = 'Support Phone Numbers'
+    line7[1].text = entries['SUPPORT']['E_NUMBERS']
+
+    line8 = table.rows[8].cells
+    line8[0].text = 'Support Email'
+    line8[1].text = entries['SUPPORT']['E_EMAIL']
+
+    line9 = table.rows[9].cells
+    line9[0].text = 'Support Website'
+    line9[1].text = 'https://mirantis.my.salesforce.com/'
+
+    line10 = table.rows[10].cells
+    line10[0].text = 'Severity 1 SLA'
+    line10[1].text = entitlements['E_SEV1']
+
+    line11 = table.rows[11].cells
+    line11[0].text = 'Severity 2 SLA'
+    line11[1].text = entitlements['E_SEV2']
+
+    line12 = table.rows[12].cells
+    line12[0].text = 'Severity 3 SLA'
+    line12[1].text = entitlements['E_SEV3']
+
+    line13 = table.rows[13].cells
+    line13[0].text = 'Severity 4 SLA'
+    line13[1].text = entitlements['E_SEV4']
+
+    if int(entries['SUPPORT']['ENTITLEMENT']) is 3:
+       line14 = table.rows[14].cells
+       line14[0].text = 'Customer Success Manager'
+       line14[1].text = entries['SUPPORT']['E_CONTACT']
 
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
@@ -112,13 +245,14 @@ def docx_replace(old_file,new_file,rep):
     zout.close()
     zin.close()
 
+# Generate 'Nodes' table
 def gen_nodes_table(nodeData):
    # Generate row_count by counting the number of nodes and adding 1 for the header row
    row_count = len(nodeData)+1
    col_count = 6
 
    # Add a heading; last digit is heading size
-   heading = runbook.add_heading('Nodes(VMs)',level=1)
+   heading = runbook.add_heading('Nodes',level=1)
    heading.alignment = 1
 
    # Create table for the data
@@ -144,23 +278,7 @@ def gen_nodes_table(nodeData):
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
 
-# Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id):
-    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
-    networks = []
-    for x in network_data['networks']:
-        network = {}
-        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = 'no data'
-        network['port_mode'] = 'no data'
-        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
-        network['interface'] = 'no data'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
-        networks.append(network)
-    return networks
-
+# Generate 'Network Layout' table
 def gen_network_layout_table(networkData):
     row_count = len(networkData)+1
     col_count = 6
@@ -187,6 +305,7 @@ def gen_network_layout_table(networkData):
       networkRow[4].text = network['vlan']
       networkRow[5].text = network['interface']
 
+# Handle webpage screenshots
 def screenshot(page,name,fix=False):
     if fix:
         driver.get('https://' + args.host + ':' + args.web_port)
@@ -216,11 +335,28 @@ def screenshot(page,name,fix=False):
     else:
         driver.save_screenshot('screens/' + name + '.png')
 
+# Alphanumeric sort key
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split(re.compile('([0-9]+)'), s)]
 
-# Initialiation
+# Checks PATH for chromedriver dependency
+def cmd_exists(cmd):
+    return any(
+        os.access(os.path.join(path, cmd), os.X_OK)
+        for path in os.environ['PATH'].split(os.pathsep)
+    )
+
+# Handle screenshot headings
+def titles_handler(title):
+    parts = re.search('\d+_(\w+)',title)
+    return parts.group(1)
+
+# =========================================
+# INIT
+# =========================================
+
+# Destroy and/or create 'screens/' directory
 try:
     shutil.rmtree('screens/')
     os.makedirs('screens/')
@@ -228,16 +364,14 @@ except FileNotFoundError:
     os.makedirs('screens/')
 
 # Handle chromedriver dependency
-def cmd_exists(cmd):
-    return any(
-        os.access(os.path.join(path, cmd), os.X_OK)
-        for path in os.environ['PATH'].split(os.pathsep)
-    )
 if not cmd_exists('chromedriver'):
     sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
 
+# Get token & Node informationfrom Fuel API
 token = get_token()
 nodedata = get_nodes(token)
+
+# Init Selenium + chromedriver
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
@@ -265,11 +399,16 @@ clusters = []
 for a in driver.find_elements_by_tag_name('a'):
     if 'cluster/' in a.get_attribute('href'):
         clusters.append(a.get_attribute('href'))
+# =========================================
+# END INIT
+# =========================================
 
-screenshot(None,'fuel_evironments')
-screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','fuel_equipment')
-screenshot('https://' + args.host + ':' + args.web_port + '/#releases','fuel_releases')
-screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','fuel_plugins')
+
+# Fuel tabs screenshots
+screenshot(None,'Environments')
+screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','Equipment')
+screenshot('https://' + args.host + ':' + args.web_port + '/#releases','Releases')
+screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins')
 
 # Environments screenshots
 for c in clusters:
@@ -290,7 +429,7 @@ for c in clusters:
         if i == 0:
             screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
             screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
-        screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disk',True )
+        screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disks',True )
         screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
 
 
@@ -317,24 +456,31 @@ for c in clusters:
             time.sleep(.2)
             screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
 
+# Close browser session
 driver.close()
 
+# Sort files by creation time
 files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screens/' + fn)) for fn in os.listdir('screens/')], key = lambda x: x[1].st_ctime)]
 
+# Convert images from png to jpg
 for i,f in enumerate(files):
     im = Image.open('screens/' + f[0])
     im.save('screens/' + str(i) + '_' + f[0].replace('.png','.jpg'),'JPEG')
     os.remove('screens/' + f[0])
 
 # Build cover page
-
-entries = json.load(open('entries.json'))
-entries['DATE'] = time.strftime('%d %B, %Y')
-docx_replace('template.docx','cover.docx',entries)
+entries = configparser.ConfigParser()
+entries.read('entries.cfg')
+replaces = {
+"CUSTOMER": entries['COVER']['CUSTOMER'],
+"ENV": entries['COVER']['ENV'],
+"RELEASE": entries['COVER']['RELEASE'],
+"DATE": time.strftime('%d %B, %Y'),
+"AUTHORS": entries['COVER']['AUTHORS']
+}
+docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
-
-# Generate the token for access
 
 fuel = fuel_info()
 gen_access_table(fuel)
@@ -344,19 +490,24 @@ gen_nodes_table(nodedata)
 # runbook.add_page_break()
 
 # gen_network_layout_table(network_info(1))
+runbook.add_page_break()
+
+gen_support_table()
 
 runbook.add_page_break()
 runbook.add_page_break()
 
+# Sort screenshots alphanumerically
 files = os.listdir('screens/')
 files.sort(key=natural_sort_key)
 
+#
 for i,f in enumerate(files):
     last = runbook.paragraphs[-1]
     p = last._element
     p.getparent().remove(p)
     p._p = p._element = None
-    heading = runbook.add_heading(f.replace('.jpg',''), level=1)
+    heading = runbook.add_heading(titles_handler(f.replace('.jpg','')), level=1)
     heading.alignment = 1
     runbook.add_picture('screens/' + f, width=Inches(6.5))
     pic = runbook.paragraphs[-1]
@@ -364,7 +515,7 @@ for i,f in enumerate(files):
     if i != len(files)-1:
         runbook.add_page_break()
 
-runbook.save('Runbook - ' + entries['CUSTOMER'] + '.docx')
+runbook.save('Runbook - ' + entries['COVER']['CUSTOMER'] + '.docx')
 
 # Cleanup
 shutil.rmtree('screens/')
