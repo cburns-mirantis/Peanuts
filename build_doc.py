@@ -66,13 +66,13 @@ def network_info(cluster_id):
     networks = []
     for x in network_data['networks']:
         network = {}
-        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = str('no data')
-        network['port_mode'] = 'no data'
-        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'# Check native
-        network['interface'] = 'no data'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
+        network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
+        network['speed'] = str('(no data)')
+        network['port_mode'] = '(no data)'
+        network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else '(no data)'# Check native
+        network['interface'] = '(no data)'
+        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
     return networks
 
@@ -277,7 +277,7 @@ def gen_nodes_table(nodeData):
       nodeRow[2].text = nodeData[nodeCounter]['ip']
       nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) # Total or real?
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
-      nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
+      nodeRow[5].text = [(str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \r\n') for x in nodeData[nodeCounter]['meta']['disks']]
 
 # Gathers network information on the cluster in question using the REST interface
 def network_info(cluster_id, nodedata):
@@ -286,22 +286,22 @@ def network_info(cluster_id, nodedata):
     networks = []
     for x in network_data['networks']:
         network = {}
-        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = 'no data'#str(nodedata[x]['meta']['interfaces'][y]['max_speed']['current_speed'])
-        network['port_mode'] = 'no data'
-        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
-        network['interface'] = 'no data'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
+        network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
+        network['speed'] = '(no data)'#str(nodedata[x]['meta']['interfaces'][y]['max_speed']['current_speed'])
+        network['port_mode'] = '(no data)'
+        network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else '(no data)'
+        network['interface'] = '(no data)'
+        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
-    print(networks)
+    #print(networks)
     return networks
 
 # Generate 'Network Layout' table
 
 def gen_network_layout_table(networkData, env):
     row_count = len(networkData)+1
-    col_count = 6
+    col_count = 5
 
     heading = runbook.add_heading('Network Layout - Environment ' + env,level=1)
     heading.alignment = 1
@@ -322,7 +322,7 @@ def gen_network_layout_table(networkData, env):
         networkRow[1].text = network['speed']
         networkRow[2].text = network['port_mode']
         networkRow[3].text = network['ip_range']
-       # networkRow[4].text = network['vlan']
+        networkRow[4].text = network['vlan']
 
     runbook.add_page_break()
 
@@ -520,7 +520,6 @@ for cluster in clusters:
     cluster_id = results.group(2)
     gen_network_layout_table(network_info(str(cluster_id),nodedata),cluster_id)
 
-runbook.add_page_break()
 runbook.add_page_break()
 
 # Sort screenshots alphanumerically
