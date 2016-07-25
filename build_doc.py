@@ -273,7 +273,7 @@ def gen_nodes_table(nodeData):
    for nodeCounter, node in enumerate(nodeData):
       nodeRow = table.rows[nodeCounter+1].cells
       nodeRow[0].text = nodeData[nodeCounter]['hostname']
-      nodeRow[1].text = {x+' ' for x in nodeData[nodeCounter]['roles']}
+      nodeRow[1].text = [(x+', ' if x in nodeData[nodeCounter]['roles'][:-1] else x) for x in nodeData[nodeCounter]['roles']]
       nodeRow[2].text = nodeData[nodeCounter]['ip']
       nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) # Total or real?
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
@@ -287,14 +287,13 @@ def network_info(cluster_id, nodedata):
     for x in network_data['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
-        network['speed'] = '(no data)'#str(nodedata[x]['meta']['interfaces'][y]['max_speed']['current_speed'])
+        network['speed'] = '(no data)'#network['speed'] = str(nodedata[x]['meta']['interfaces'][0]['max_speed']) if not None else '(no data)'; print("Could not reliably determine network speed for " + x['name'])
         network['port_mode'] = '(no data)'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else '(no data)'
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'Native'
         network['interface'] = '(no data)'
         network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
-    #print(networks)
     return networks
 
 # Generate 'Network Layout' table
@@ -389,10 +388,13 @@ if not cmd_exists('chromedriver'):
     sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
 
 # Get token & Node informationfrom Fuel API
+print("Getting token for Fuel authorization...")
 token = get_token()
+print("Gathering node data...")
 nodedata = get_nodes(token)
 
 # Init Selenium + chromedriver
+print("Starting screenshot collection...")
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
@@ -490,6 +492,7 @@ for i,f in enumerate(files):
     os.remove('screens/' + f[0])
 
 # Build cover page
+print("Generating cover page...")
 entries = configparser.ConfigParser()
 entries.read('entries.cfg')
 replaces = {
@@ -503,21 +506,23 @@ docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
 
+print("Creating Access table...")
 fuel = fuel_info()
 gen_access_table(fuel)
 runbook.add_page_break()
 
+print("Creating Nodes table...")
 gen_nodes_table(nodedata)
-
 runbook.add_page_break()
 
+print("Creating Support table...")
 gen_support_table()
-
 runbook.add_page_break()
 
 for cluster in clusters:
     results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
     cluster_id = results.group(2)
+    print("Creating Network table (Environment " + cluster_id + ")")
     gen_network_layout_table(network_info(str(cluster_id),nodedata),cluster_id)
 
 runbook.add_page_break()
@@ -540,6 +545,7 @@ for i,f in enumerate(files):
     if i != len(files)-1:
         runbook.add_page_break()
 
+print("Saving runbook as 'Runbook for " + entries['COVER']['CUSTOMER'] + ".docx'")
 runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
 
 # Cleanup
