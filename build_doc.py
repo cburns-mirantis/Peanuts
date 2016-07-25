@@ -67,7 +67,7 @@ def network_info(cluster_id):
     for x in network_data['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = str('no data'
+        network['speed'] = str('no data')
         network['port_mode'] = 'no data'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'
         network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'# Check native
@@ -280,14 +280,14 @@ def gen_nodes_table(nodeData):
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
 
 # Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id, node_data):
+def network_info(cluster_id, nodedata):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
     networks = []
     for x in network_data['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = 'no data'#str(node_data[x]['meta']['interfaces'][y]['max_speed']['current_speed'])
+        network['speed'] = 'no data'#str(nodedata[x]['meta']['interfaces'][y]['max_speed']['current_speed'])
         network['port_mode'] = 'no data'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
         network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
@@ -518,7 +518,7 @@ runbook.add_page_break()
 for cluster in clusters:
     results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
     cluster_id = results.group(2)
-    gen_network_layout_table(network_info(str(cluster_id)),cluster_id, nodedata)
+    gen_network_layout_table(network_info(str(cluster_id),nodedata),cluster_id)
 
 runbook.add_page_break()
 runbook.add_page_break()
