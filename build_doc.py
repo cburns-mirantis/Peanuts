@@ -59,22 +59,6 @@ def fuel_info():
     #fuel['env_list'] =
     return fuel
 
-# Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id):
-    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
-    networks = []
-    for x in network_data['networks']:
-        network = {}
-        network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
-        network['speed'] = str('(no data)')
-        network['port_mode'] = '(no data)'
-        network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else '(no data)'# Check native
-        network['interface'] = '(no data)'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
-        networks.append(network)
-    return networks
 
 # Generate 'Access Information' table
 def gen_access_table(fuel):
@@ -287,7 +271,28 @@ def network_info(cluster_id, nodedata):
     for x in network_data['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
-        network['speed'] = '(no data)'#network['speed'] = str(nodedata[x]['meta']['interfaces'][0]['max_speed']) if not None else '(no data)'; print("Could not reliably determine network speed for " + x['name'])
+
+        # This loop cross-references network devices from nodes.json with network.json
+        for i in nodedata:
+            try:
+                for y in i['network_data']:
+                    if x['name'] == y['name']:
+                        for z in i['meta']['interfaces']:
+                            if z['name'] == y['dev']:
+                                network['speed'] = str(z['speed']) if not None else '(no data)'
+                                print(network['speed'])
+            except:
+                continue
+        # If we can be sure that every network will be in nodedata[iterator]['network_data'] then we can use this much more efficient loop instead:
+        for i,y in nodedata,i['meta']['interfaces']:
+            try:
+                if y['name'] == i['network_data'][x]['dev']
+                    network['speed'] = str(y['max_speed'])
+                    break
+            except:
+                continue
+
+#        network['speed'] = [str(nodes[z]) for z in nodedata[#network['speed'] = str(nodedata[x]['meta']['interfaces'][0]['max_speed']) if not None else '(no data)'; print("Could not reliably determine network speed for " + x['name'])
         network['port_mode'] = '(no data)'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
         network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'Native'
@@ -415,7 +420,10 @@ time.sleep(1)
 span_list = []
 for v in driver.find_elements_by_tag_name('span'):
     span_list.append(v.text)
-version = span_list[-1][:-2]
+try:
+    version = span_list[-1][:-2]
+except:
+    version = "(version not available)"
 
 # Get environments
 clusters = []
