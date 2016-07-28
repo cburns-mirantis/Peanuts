@@ -271,34 +271,22 @@ def network_info(cluster_id, nodedata):
     for x in network_data['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
-
-        # This loop cross-references network devices from nodes.json with network.json
         for i in nodedata:
-            try:
-                for y in i['network_data']:
-                    if x['name'] == y['name']:
-                        for z in i['meta']['interfaces']:
-                            if z['name'] == y['dev']:
-                                network['speed'] = str(z['speed']) if not None else '(no data)'
-                                print(network['speed'])
-            except:
-                continue
-        # If we can be sure that every network will be in nodedata[iterator]['network_data'] then we can use this much more efficient loop instead:
-        for i,y in nodedata,i['meta']['interfaces']:
-            try:
-                if y['name'] == i['network_data'][x]['dev']
-                    network['speed'] = str(y['max_speed'])
-                    break
-            except:
-                continue
+            if len(i['network_data']):
+                for z in i['network_data']:
+                        for y in i['meta']['interfaces']:
+                            if y['name'] == z['dev']:
+                                network['speed'] = str(y['max_speed'])
+                                print(y['mac'])
+                                break
 
-#        network['speed'] = [str(nodes[z]) for z in nodedata[#network['speed'] = str(nodedata[x]['meta']['interfaces'][0]['max_speed']) if not None else '(no data)'; print("Could not reliably determine network speed for " + x['name'])
         network['port_mode'] = '(no data)'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
         network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'Native'
         network['interface'] = '(no data)'
         network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
+                
     return networks
 
 # Generate 'Network Layout' table
