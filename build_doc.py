@@ -9,6 +9,9 @@ from docx import Document
 from docx.shared import Inches
 from collections import OrderedDict
 from docx.enum.style import WD_STYLE
+import nwdiag.parser
+from nwdiag.drawer import DiagramDraw
+from nwdiag.builder import ScreenNodeBuilder
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
@@ -47,16 +50,12 @@ def fuel_info():
     fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('route -n | grep UG | awk -e \'{ print $2 }\'')
     fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
-    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
-    #fuel['env_list'] = ssh_stdout.readlines()[0].replace('\n','')
-    # print(ssh_stdout.readlines())
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
     fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
 
     fuel['url'] = 'https://' + args.host + ':' + args.web_port
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
-    #fuel['env_list'] =
     return fuel
 
 
@@ -246,7 +245,7 @@ def gen_nodes_table(nodeData):
    hdr_cells[0].text = 'Hostname'
    hdr_cells[1].text = 'Role(s)'
    hdr_cells[2].text = 'Admin network IP address'
-   hdr_cells[3].text = 'CPUxCores'
+   hdr_cells[3].text = 'Cores x CPU'
    hdr_cells[4].text = 'RAM'
    hdr_cells[5].text = 'HDD'
 
@@ -259,14 +258,17 @@ def gen_nodes_table(nodeData):
       nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodeData[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
-    #   nodeRow[5].text = [(str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \r\n') for x in nodeData[nodeCounter]['meta']['disks']]
 
 # Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id, nodedata):
+def network_info(cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
+    return network_data
+
+def get_network_layout(cluster):
     networks = []
-    for x in network_data['networks']:
+    networks_data = network_info(cluster)
+    for x in networks_data['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
         for i in nodedata:
@@ -356,6 +358,53 @@ def cmd_exists(cmd):
 def titles_handler(title):
     parts = re.search('\d+_(\w+)',title)
     return parts.group(1)
+
+def get_node_NIC_hardware(token, hosts, net_name):
+ nic = ""
+ for host in hosts:
+   net_count = 0
+   for networks in host["network_data"]:
+     # Format web01 [address = "ens03, 210.x.x.20"];
+     try:
+       if host["network_data"][net_count]['name'] == net_name:
+         if host["network_data"][net_count]['vlan'] is not None:
+           nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
+         else:
+           nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
+     except:
+       # Private Network
+       nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
+       pass
+     net_count += 1
+ return nic
+
+
+def create_network_diagram(token,cluster):
+ diagram_input = ""
+ hosts = get_nodes(token)
+ net_info = network_info(cluster)
+
+ net_loop_count = 0
+ diagram_input += "nwdiag {"
+ for network in net_info["networks"]:
+   try:
+     diagram_input += "network " + net_info["networks"][net_loop_count]["meta"]["name"] +" {"
+     diagram_input += get_node_NIC_hardware(token, hosts, net_info["networks"][net_loop_count]["meta"]["name"])
+   except:
+     diagram_input += "network fuelweb_admin {"
+     diagram_input += get_node_NIC_hardware(token, hosts, "fuelweb_admin")
+     diagram_input += 'address = "10.20.0.0/24"'
+     diagram_input += "}"
+     continue
+
+   cidr = net_info["networks"][net_loop_count]["cidr"]
+   if str(cidr) != "None":
+     diagram_input += 'address = "'+ str(cidr) + '"'
+   diagram_input += "}"
+   net_loop_count += 1
+ diagram_input += "}"
+ return diagram_input
+
 
 # =========================================
 # INIT
@@ -503,19 +552,44 @@ print("Creating Nodes table...")
 gen_nodes_table(nodedata)
 runbook.add_page_break()
 
-print("Creating Support table...")
-gen_support_table()
-runbook.add_page_break()
+
 
 for cluster in clusters:
     results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
     cluster_id = results.group(2)
-
-
     print("Creating Network table (Environment " + cluster_id + ")")
-    gen_network_layout_table(network_info(str(cluster_id),nodedata),cluster_id)
+    gen_network_layout_table(get_network_layout(cluster_id),cluster_id)
+    runbook.add_page_break()
+    with open('network-layout.png','w') as f:
+      tree = nwdiag.parser.parse_string(create_network_diagram(token,cluster_id))
+      diagram = ScreenNodeBuilder.build(tree)
+      draw = DiagramDraw('PNG', diagram, 'network-layout.png',
+          fontmap=None, antialias=False, nodoctype=True)
+      draw.draw()
+      draw.save()
+      f.close()
+      # convert png to jpg
+      im = Image.open('network-layout.png')
+      im.save('network-layout.png'.replace('.png','.jpg'),'JPEG')
+      os.remove('network-layout.png')
+
+      # add a page to the document
+      last = runbook.paragraphs[-1]
+      p = last._element
+      p.getparent().remove(p)
+      p._p = p._element = None
+      heading = runbook.add_heading("Logical Network Layout", level=1)
+      heading.alignment = 1
+      runbook.add_picture("network-layout.jpg", width=Inches(5.3))
+      pic = runbook.paragraphs[-1]
+      pic.alignment = 1
+    #   if i != len(files)-1:
+        #   runbook.add_page_break()
 
 
+print("Creating Support table...")
+gen_support_table()
+runbook.add_page_break()
 runbook.add_page_break()
 
 # Sort screenshots alphanumerically
@@ -536,6 +610,8 @@ for i,f in enumerate(files):
     if i != len(files)-1:
         runbook.add_page_break()
 
+
+
 print("Saving runbook as 'Runbook for " + entries['COVER']['CUSTOMER'] + ".docx'")
 runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
 
@@ -544,3 +620,4 @@ runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
 # Cleanup
 shutil.rmtree('screens/')
 os.remove('cover.docx')
+os.remove('network-layout.jpg')

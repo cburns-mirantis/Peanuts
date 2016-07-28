@@ -8,7 +8,7 @@ Vagrant.configure(2) do |config|
     sudo apt-get -f install
     wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb >/dev/null 2>&1
     sudo dpkg -i google-chrome-stable_current_amd64.deb
-    sudo pip3 install python-docx selenium Pillow
+    sudo pip3 install python-docx selenium Pillow nwdiag
     sudo pip3 install paramiko --upgrade
     sudo pip3 install requests --upgrade
     wget "http://chromedriver.storage.googleapis.com/$(curl -s "http://chromedriver.storage.googleapis.com/LATEST_RELEASE")/chromedriver_linux64.zip" >/dev/null 2>&1
