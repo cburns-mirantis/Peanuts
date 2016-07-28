@@ -2,6 +2,7 @@ This script is for automating the post deployment runbook.
 
 TODO:
 
+Output json 
 
 # Mangement Interface
 # Get DHCP Range
@@ -102,3 +103,5 @@ This vagrant file sets up the dependencies in an Ubuntu VM and enables you to ru
 NOTE: /vagrant directory is only available when starting the VM through 'vagrant up'
 
 Adding styles to the document:
+
+Credits:

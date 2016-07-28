@@ -7,9 +7,9 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from PIL import Image
 from docx import Document
 from docx.shared import Inches
-from selenium import webdriver
 from collections import OrderedDict
 from docx.enum.style import WD_STYLE
+from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 
@@ -47,7 +47,7 @@ def fuel_info():
     fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('route -n | grep UG | awk -e \'{ print $2 }\'')
     fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
+    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('fuel plugins list')
     #fuel['env_list'] = ssh_stdout.readlines()[0].replace('\n','')
     # print(ssh_stdout.readlines())
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
@@ -125,7 +125,6 @@ def entitlement_handler(entitlement):
     if int(entitlement) is 1:
         support_services =  {
             'ENTITLEMENT':'8 x 5',
-            'E_MIN_TERM':'1 Year',
             'E_DAYS':'Monday - Friday',
             'E_HOURS':'9am - 5pm',
             'E_SEV1':'4 Business Hours',
@@ -136,7 +135,6 @@ def entitlement_handler(entitlement):
     if int(entitlement) is 2:
         support_services =  {
             'ENTITLEMENT':'24 x 7',
-            'E_MIN_TERM':'1 Year',
             'E_DAYS':'24 x 7',
             'E_HOURS':'24 x 7',
             'E_SEV1':'1 Business Hour',
@@ -147,7 +145,6 @@ def entitlement_handler(entitlement):
     if int(entitlement) is 3:
         support_services =  {
             'ENTITLEMENT':'24 x 7',
-            'E_MIN_TERM':'1 Year',
             'E_DAYS':'24 x 7',
             'E_HOURS':'24 x 7',
             'E_SEV1':'15 Minutes',
@@ -200,15 +197,15 @@ def gen_support_table():
 
     line7 = table.rows[7].cells
     line7[0].text = 'Support Phone Numbers'
-    line7[1].text = entries['SUPPORT']['E_NUMBERS']
+    line7[1].text = '+1 (650) 963-9828, +1 (925) 808-FUEL'
 
     line8 = table.rows[8].cells
     line8[0].text = 'Support Email'
-    line8[1].text = entries['SUPPORT']['E_EMAIL']
+    line8[1].text = 'support@mirantis.com'
 
     line9 = table.rows[9].cells
     line9[0].text = 'Support Website'
-    line9[1].text = 'https://mirantis.my.salesforce.com/'
+    line9[1].text = 'https://support.mirantis.com/'
 
     line10 = table.rows[10].cells
     line10[0].text = 'Severity 1 SLA'
@@ -275,8 +272,8 @@ def gen_nodes_table(nodeData):
       nodeRow[0].text = nodeData[nodeCounter]['hostname']
       nodeRow[1].text = {x+' ' for x in nodeData[nodeCounter]['roles']}
       nodeRow[2].text = nodeData[nodeCounter]['ip']
-      nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) # Total or real?
-      nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB' # Total or max cap?
+      nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodeData[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
+      nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
 
 # Gathers network information on the cluster in question using the REST interface
@@ -294,7 +291,6 @@ def network_info(cluster_id):
         network['interface'] = 'no data'
         network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
         networks.append(network)
-    print(networks)
     return networks
 
 # Generate 'Network Layout' table
@@ -325,9 +321,6 @@ def gen_network_layout_table(networkData, env):
         networkRow[3].text = network['ip_range']
         networkRow[4].text = network['vlan']
         networkRow[5].text = network['interface']
-
-
-    runbook.add_page_break()
 
 # Handle webpage screenshots
 def screenshot(page,name,fix=False):
@@ -516,12 +509,12 @@ runbook.add_page_break()
 
 gen_support_table()
 
-runbook.add_page_break()
-
 for cluster in clusters:
     results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
     cluster_id = results.group(2)
+    runbook.add_page_break()
     gen_network_layout_table(network_info(str(cluster_id)),cluster_id)
+
 
 runbook.add_page_break()
 runbook.add_page_break()
@@ -545,6 +538,8 @@ for i,f in enumerate(files):
         runbook.add_page_break()
 
 runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
+
+# Save objects as json
 
 # Cleanup
 shutil.rmtree('screens/')
