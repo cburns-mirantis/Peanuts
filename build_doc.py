@@ -59,22 +59,6 @@ def fuel_info():
     #fuel['env_list'] =
     return fuel
 
-# Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id):
-    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
-    networks = []
-    for x in network_data['networks']:
-        network = {}
-        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = 'no data'
-        network['port_mode'] = 'no data'
-        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
-        network['interface'] = 'no data'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
-        networks.append(network)
-    return networks
 
 # Generate 'Access Information' table
 def gen_access_table(fuel):
@@ -270,26 +254,35 @@ def gen_nodes_table(nodeData):
    for nodeCounter, node in enumerate(nodeData):
       nodeRow = table.rows[nodeCounter+1].cells
       nodeRow[0].text = nodeData[nodeCounter]['hostname']
-      nodeRow[1].text = {x+' ' for x in nodeData[nodeCounter]['roles']}
+      nodeRow[1].text = [(x+', ' if x in nodeData[nodeCounter]['roles'][:-1] else x) for x in nodeData[nodeCounter]['roles']]
       nodeRow[2].text = nodeData[nodeCounter]['ip']
       nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodeData[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
       nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
       nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
+    #   nodeRow[5].text = [(str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \r\n') for x in nodeData[nodeCounter]['meta']['disks']]
 
 # Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id):
+def network_info(cluster_id, nodedata):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
     networks = []
     for x in network_data['networks']:
         network = {}
-        network['network_name'] = str(x['name']) if x['name'] is not None else 'no data'
-        network['speed'] = 'no data'
-        network['port_mode'] = 'no data'
-        network['ip_range'] = str(x['cidr']) if x['name'] is not None else 'no data'# Check this - might be ['networks'][x]['ip_ranges'] instead
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'no data'
-        network['interface'] = 'no data'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else 'no data'
+        network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
+        for i in nodedata:
+            if len(i['network_data']):
+                for z in i['network_data']:
+                        for y in i['meta']['interfaces']:
+                            if y['name'] == z['dev']:
+                                network['speed'] = str(y['max_speed']) if y['max_speed'] is not None else '(no data)'
+                                print(y['mac']) # for testing
+                                break
+
+        network['port_mode'] = '(no data)'
+        network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'Native'
+        network['interface'] = '(no data)'
+        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
     return networks
 
@@ -297,7 +290,7 @@ def network_info(cluster_id):
 
 def gen_network_layout_table(networkData, env):
     row_count = len(networkData)+1
-    col_count = 6
+    col_count = 5
 
     heading = runbook.add_heading('Network Layout - Environment ' + env,level=1)
     heading.alignment = 1
@@ -311,7 +304,6 @@ def gen_network_layout_table(networkData, env):
     hdr_cells[2].text = 'Port mode'
     hdr_cells[3].text = 'IP Range'
     hdr_cells[4].text = 'VLAN'
-    hdr_cells[5].text = 'Interface'
 
     for netCounter, network in enumerate(networkData):
         networkRow = table.rows[netCounter+1].cells
@@ -321,6 +313,8 @@ def gen_network_layout_table(networkData, env):
         networkRow[3].text = network['ip_range']
         networkRow[4].text = network['vlan']
         networkRow[5].text = network['interface']
+
+    # runbook.add_page_break()
 
 # Handle webpage screenshots
 def screenshot(page,name,fix=False):
@@ -385,10 +379,13 @@ if not cmd_exists('chromedriver'):
     sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
 
 # Get token & Node informationfrom Fuel API
+print("Getting token for Fuel authorization...")
 token = get_token()
+print("Gathering node data...")
 nodedata = get_nodes(token)
 
 # Init Selenium + chromedriver
+print("Starting screenshot collection...")
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
@@ -409,7 +406,10 @@ time.sleep(1)
 span_list = []
 for v in driver.find_elements_by_tag_name('span'):
     span_list.append(v.text)
-version = span_list[-1][:-2]
+try:
+    version = span_list[-1][:-2]
+except:
+    version = "(version not available)"
 
 # Get environments
 clusters = []
@@ -486,6 +486,7 @@ for i,f in enumerate(files):
     os.remove('screens/' + f[0])
 
 # Build cover page
+print("Generating cover page...")
 entries = configparser.ConfigParser()
 entries.read('entries.cfg')
 replaces = {
@@ -499,24 +500,28 @@ docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
 
+print("Creating Access table...")
 fuel = fuel_info()
 gen_access_table(fuel)
 runbook.add_page_break()
 
+print("Creating Nodes table...")
 gen_nodes_table(nodedata)
-
 runbook.add_page_break()
 
+print("Creating Support table...")
 gen_support_table()
+runbook.add_page_break()
 
 for cluster in clusters:
     results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
     cluster_id = results.group(2)
-    runbook.add_page_break()
-    gen_network_layout_table(network_info(str(cluster_id)),cluster_id)
 
 
-runbook.add_page_break()
+    print("Creating Network table (Environment " + cluster_id + ")")
+    gen_network_layout_table(network_info(str(cluster_id),nodedata),cluster_id)
+
+
 runbook.add_page_break()
 
 # Sort screenshots alphanumerically
@@ -537,6 +542,7 @@ for i,f in enumerate(files):
     if i != len(files)-1:
         runbook.add_page_break()
 
+print("Saving runbook as 'Runbook for " + entries['COVER']['CUSTOMER'] + ".docx'")
 runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
 
 # Save objects as json
