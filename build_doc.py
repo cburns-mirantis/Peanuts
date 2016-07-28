@@ -276,8 +276,8 @@ def network_info(cluster_id, nodedata):
                 for z in i['network_data']:
                         for y in i['meta']['interfaces']:
                             if y['name'] == z['dev']:
-                                network['speed'] = str(y['max_speed'])
-                                print(y['mac'])
+                                network['speed'] = str(y['max_speed']) if y['max_speed'] is not None else '(no data)'
+                                print(y['mac']) # for testing 
                                 break
 
         network['port_mode'] = '(no data)'
