@@ -275,13 +275,10 @@ def network_info(cluster_id, nodedata):
                         for y in i['meta']['interfaces']:
                             if y['name'] == z['dev']:
                                 network['speed'] = str(y['max_speed']) if y['max_speed'] is not None else '(no data)'
-                                print(y['mac']) # for testing
                                 break
 
-        network['port_mode'] = '(no data)'
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
-        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'Native'
-        network['interface'] = '(no data)'
+        network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'No VLAN'
         network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
     return networks
@@ -290,7 +287,7 @@ def network_info(cluster_id, nodedata):
 
 def gen_network_layout_table(networkData, env):
     row_count = len(networkData)+1
-    col_count = 5
+    col_count = 4
 
     heading = runbook.add_heading('Network Layout - Environment ' + env,level=1)
     heading.alignment = 1
@@ -301,20 +298,17 @@ def gen_network_layout_table(networkData, env):
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Network name'
     hdr_cells[1].text = 'Speed'
-    hdr_cells[2].text = 'Port mode'
-    hdr_cells[3].text = 'IP Range'
-    hdr_cells[4].text = 'VLAN'
+    hdr_cells[2].text = 'IP Range'
+    hdr_cells[3].text = 'VLAN'
 
     for netCounter, network in enumerate(networkData):
         networkRow = table.rows[netCounter+1].cells
         networkRow[0].text = network['network_name']
         networkRow[1].text = network['speed']
-        networkRow[2].text = network['port_mode']
-        networkRow[3].text = network['ip_range']
-        networkRow[4].text = network['vlan']
-        networkRow[5].text = network['interface']
+        networkRow[2].text = network['ip_range']
+        networkRow[3].text = network['vlan']
 
-    # runbook.add_page_break()
+    runbook.add_page_break()
 
 # Handle webpage screenshots
 def screenshot(page,name,fix=False):
