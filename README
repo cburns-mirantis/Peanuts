@@ -2,7 +2,18 @@ This script is for automating the post deployment runbook.
 
 TODO:
 
-Output json 
+Output json
+Handle MOS 7
+Handle slow environments
+
+Fixes:
+
+management_iface handle domain names
+Fix sorting of pictures
+get cluster ids from API
+get version from api
+check per role, and only screenshot one per similar hosts
+get speed correctly from environments
 
 # Mangement Interface
 # Get DHCP Range
@@ -95,9 +106,9 @@ This vagrant file sets up the dependencies in an Ubuntu VM and enables you to ru
 1. git clone
 2. cd runbook
 3. vagrant up
-4. vagrant ssh -- -R 8443:10.20.0.2:8443
+4. vagrant ssh
 5. cd /vagrant
-6. ./build_doc.py -f localhost
+6. ./build_doc.py -f 10.20.0.2
 7. Output files will be created in the cloned directory where the Vagrantfile is on your host
 
 NOTE: /vagrant directory is only available when starting the VM through 'vagrant up'

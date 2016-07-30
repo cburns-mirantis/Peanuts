@@ -33,12 +33,24 @@ def get_token():
     r = requests.post(url='https://' + args.host + ':' + args.web_port + '/keystone/v2.0/tokens',headers=header,verify=False,json=creds)
     if r.status_code is not 200:
         sys.exit('Check Fuel username & password')
+    print('Successful auth.')
     return json.loads(r.text)['access']['token']['id']
 
-# Get nodes from Fuel API
 def get_nodes(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     return sorted(json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
+
+def get_clusters(token):
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters',headers=header, verify=False).text)
+
+def get_version(token):
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/version',headers=header, verify=False).text)
+
+def get_network(token,cluster_id):
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
 
 # Get information about the Fuel Instance through SSH
 def fuel_info():
@@ -58,9 +70,8 @@ def fuel_info():
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
     return fuel
 
-
 # Generate 'Access Information' table
-def gen_access_table(fuel):
+def gen_access_table():
    row_count = 8
    col_count = 2
 
@@ -227,9 +238,9 @@ def docx_replace(old_file,new_file,rep):
     zin.close()
 
 # Generate 'Nodes' table
-def gen_nodes_table(nodeData):
+def gen_nodes_table():
    # Generate row_count by counting the number of nodes and adding 1 for the header row
-   row_count = len(nodeData)+1
+   row_count = len(nodedata)+1
    col_count = 6
 
    # Add a heading; last digit is heading size
@@ -250,25 +261,18 @@ def gen_nodes_table(nodeData):
    hdr_cells[5].text = 'HDD'
 
    # Modify each additional row using data for the node
-   for nodeCounter, node in enumerate(nodeData):
+   for nodeCounter, node in enumerate(nodedata):
       nodeRow = table.rows[nodeCounter+1].cells
-      nodeRow[0].text = nodeData[nodeCounter]['hostname']
-      nodeRow[1].text = [(x+', ' if x in nodeData[nodeCounter]['roles'][:-1] else x) for x in nodeData[nodeCounter]['roles']]
-      nodeRow[2].text = nodeData[nodeCounter]['ip']
-      nodeRow[3].text = str(nodeData[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodeData[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
-      nodeRow[4].text = str(int(nodeData[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
-      nodeRow[5].text = [str(x['disk']) + ': ' + str(int(x['size']/1073741824)) + 'GB \n' for x in nodeData[nodeCounter]['meta']['disks']]
+      nodeRow[0].text = nodedata[nodeCounter]['hostname']
+      nodeRow[1].text = [(x+', ' if x in nodedata[nodeCounter]['roles'][:-1] else x) for x in nodedata[nodeCounter]['roles']]
+      nodeRow[2].text = nodedata[nodeCounter]['ip']
+      nodeRow[3].text = str(nodedata[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodedata[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
+      nodeRow[4].text = str(int(nodedata[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
+      nodeRow[5].text = [str(x['name']) + ': ' + str(int(x['size']/1073741824)) + 'GB     ' for x in nodedata[nodeCounter]['meta']['disks']]
 
-# Gathers network information on the cluster in question using the REST interface
-def network_info(cluster_id):
-    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    network_data = json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
-    return network_data
-
-def get_network_layout(cluster):
+def get_network_layout():
     networks = []
-    networks_data = network_info(cluster)
-    for x in networks_data['networks']:
+    for x in networkdata['networks']:
         network = {}
         network['network_name'] = str(x['name']) if x['name'] is not None else '(no data)'
         for i in nodedata:
@@ -281,14 +285,14 @@ def get_network_layout(cluster):
 
         network['ip_range'] = str(x['cidr']) if x['name'] is not None else '(no data)'# Check this - might be ['networks'][x]['ip_ranges'] instead
         network['vlan'] = str(x['vlan_start']) if x['vlan_start'] is not None else 'No VLAN'
-        network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
+        # network['gateway'] = str(x['gateway']) if x['gateway'] is not None else '(no data)'
         networks.append(network)
     return networks
 
 # Generate 'Network Layout' table
 
-def gen_network_layout_table(networkData, env):
-    row_count = len(networkData)+1
+def gen_network_layout_table(networks,env):
+    row_count = len(networks)+1
     col_count = 4
 
     heading = runbook.add_heading('Network Layout - Environment ' + env,level=1)
@@ -303,23 +307,38 @@ def gen_network_layout_table(networkData, env):
     hdr_cells[2].text = 'IP Range'
     hdr_cells[3].text = 'VLAN'
 
-    for netCounter, network in enumerate(networkData):
+    for netCounter, network in enumerate(networks):
         networkRow = table.rows[netCounter+1].cells
         networkRow[0].text = network['network_name']
-        networkRow[1].text = network['speed']
+        # networkRow[1].text = network['speed']
         networkRow[2].text = network['ip_range']
         networkRow[3].text = network['vlan']
 
-    runbook.add_page_break()
+def wait_for_page_tag_name(name):
+    while(True):
+        try:
+            test = driver.find_element_by_name(name)
+        except NoSuchElementException:
+            continue
+        break
+
+def wait_for_page_tag_class(class_name):
+    while(True):
+        try:
+            test = driver.find_element_by_class_name(class_name)
+        except NoSuchElementException:
+            continue
+        break
 
 # Handle webpage screenshots
-def screenshot(page,name,fix=False):
+def screenshot(page,name,tag,fix=False):
     if fix:
         driver.get('https://' + args.host + ':' + args.web_port)
         time.sleep(1)
     if page is not None:
         driver.get(page)
-    time.sleep(1)
+    if tag is not None:
+        wait_for_page_tag_class(tag)
     total_width = driver.execute_script('return document.body.offsetWidth')
     total_height = driver.execute_script('return document.body.parentNode.scrollHeight')
 
@@ -354,57 +373,57 @@ def cmd_exists(cmd):
         for path in os.environ['PATH'].split(os.pathsep)
     )
 
-# Handle screenshot headings
-def titles_handler(title):
-    parts = re.search('\d+_(\w+)',title)
-    return parts.group(1)
+def get_node_NIC_hardware(token, cluster, net_name):
+    nic = ""
+    for host in cluster:
+        net_count = 0
+        for networks in host["network_data"]:
+            try:
+                if host["network_data"][net_count]['name'] == net_name:
+                    if host["network_data"][net_count]['vlan'] is not None:
+                        nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
+                    else:
+                        nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
+            except:
+                nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
+                pass
+            net_count += 1
+    return nic
 
-def get_node_NIC_hardware(token, hosts, net_name):
- nic = ""
- for host in hosts:
-   net_count = 0
-   for networks in host["network_data"]:
-     # Format web01 [address = "ens03, 210.x.x.20"];
-     try:
-       if host["network_data"][net_count]['name'] == net_name:
-         if host["network_data"][net_count]['vlan'] is not None:
-           nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
-         else:
-           nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
-     except:
-       # Private Network
-       nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
-       pass
-     net_count += 1
- return nic
+def create_network_diagram(networks,cluster):
+    net_loop_count = 0
+    diagram_input = "nwdiag {"
+    for network in networks:
+        try:
+            diagram_input += "network " + network["meta"]["name"] +" {"
+            diagram_input += get_node_NIC_hardware(token, cluster, network["meta"]["name"])
+        except KeyError:
+            diagram_input += "network " + network["name"] +" {"
+            diagram_input += get_node_NIC_hardware(token, cluster, network["name"])
 
+        cidr = network["cidr"]
+        if str(cidr) != "None":
+            diagram_input += 'address = "'+ str(cidr) + '"'
+        diagram_input += "}"
+    diagram_input += "}"
+    return diagram_input
 
-def create_network_diagram(token,cluster):
- diagram_input = ""
- hosts = get_nodes(token)
- net_info = network_info(cluster)
-
- net_loop_count = 0
- diagram_input += "nwdiag {"
- for network in net_info["networks"]:
-   try:
-     diagram_input += "network " + net_info["networks"][net_loop_count]["meta"]["name"] +" {"
-     diagram_input += get_node_NIC_hardware(token, hosts, net_info["networks"][net_loop_count]["meta"]["name"])
-   except:
-     diagram_input += "network fuelweb_admin {"
-     diagram_input += get_node_NIC_hardware(token, hosts, "fuelweb_admin")
-     diagram_input += 'address = "10.20.0.0/24"'
-     diagram_input += "}"
-     continue
-
-   cidr = net_info["networks"][net_loop_count]["cidr"]
-   if str(cidr) != "None":
-     diagram_input += 'address = "'+ str(cidr) + '"'
-   diagram_input += "}"
-   net_loop_count += 1
- diagram_input += "}"
- return diagram_input
-
+def add_picture_page(filename,page_break=True):
+    last = runbook.paragraphs[-1]
+    p = last._element
+    p.getparent().remove(p)
+    p._p = p._element = None
+    heading = runbook.add_heading(filename.replace('.jpg',''), level=1)
+    heading.alignment = 1
+    if "network-layout" in filename:
+        runbook.add_picture('screens/' + filename, width=Inches(5.4))
+    else:
+        runbook.add_picture('screens/' + filename, width=Inches(6.5))
+    pic = runbook.paragraphs[-1]
+    pic.alignment = 1
+    if page_break:
+        runbook.add_page_break()
+    os.remove('screens/' + filename)
 
 # =========================================
 # INIT
@@ -424,17 +443,23 @@ if not cmd_exists('chromedriver'):
 # Get token & Node informationfrom Fuel API
 print("Getting token for Fuel authorization...")
 token = get_token()
+# Get Fuel version
+version = get_version(token)['release']
+print('Fuel Version:',version)
+
+print("Gathering cluster data...")
+clusters = get_clusters(token)
 print("Gathering node data...")
 nodedata = get_nodes(token)
 
 # Init Selenium + chromedriver
-print("Starting screenshot collection...")
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
 
 # Handle Login
 try:
+    wait_for_page_tag_name('username')
     username = driver.find_element_by_name('username')
     username.send_keys(args.web_username)
     password = driver.find_element_by_name('password')
@@ -443,90 +468,12 @@ except NoSuchElementException:
     driver.close()
     sys.exit('Login form not found. Do you have the correct address & port?')
 password.send_keys(Keys.RETURN)
-time.sleep(1)
 
-# Get Fuel version
-span_list = []
-for v in driver.find_elements_by_tag_name('span'):
-    span_list.append(v.text)
-try:
-    version = span_list[-1][:-2]
-except:
-    version = "(version not available)"
-
-# Get environments
-clusters = []
-for a in driver.find_elements_by_tag_name('a'):
-    if 'cluster/' in a.get_attribute('href'):
-        clusters.append(a.get_attribute('href'))
 # =========================================
 # END INIT
 # =========================================
 
-
-# Fuel tabs screenshots
-screenshot(None,'Environments')
-screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','Equipment')
-screenshot('https://' + args.host + ':' + args.web_port + '/#releases','Releases')
-screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins')
-
-# Environments screenshots
-for c in clusters:
-    driver.get(c + '/nodes')
-
-    time.sleep(1)
-    nodes = []
-    for t in driver.find_elements_by_tag_name('a'):
-        if 'node:' in t.get_attribute('href') and not 'node:null' in t.get_attribute('href'):
-            nodes.append(t.get_attribute('href'))
-    # Skip environment if it has no nodes
-    if not nodes:
-        continue
-    for i,n in enumerate(nodes):
-        results = re.search('cluster\/(\d+).*;node:(\d+)',n)
-        cluster = results.group(1)
-        node = results.group(2)
-        if i == 0:
-            screenshot(c + '/dashboard','env_' + cluster + '_dashboard',True)
-            screenshot(c + '/nodes','env_' + cluster + '_nodes',True)
-        screenshot(c + '/nodes/disks/nodes:' +node,'env_' + cluster + '_node_' + node + '_disks',True )
-        screenshot(c + '/nodes/interfaces/nodes:' +node,'env_' + cluster + '_node_' + node + '_interfaces',True )
-
-
-    driver.get(c + '/network')
-    time.sleep(1)
-    for i in range(len(driver.find_elements_by_tag_name('a'))):
-        e = driver.find_elements_by_tag_name('a')[i]
-        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
-            e.click()
-            driver.execute_script('window.scrollTo(0,0);')
-            time.sleep(.2)
-            screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'))
-        if 'Other' in e.text:
-            e.click()
-            time.sleep(1)
-            screenshot(None,'env_' + cluster + '_network_other')
-    driver.get(c + '/settings')
-    time.sleep(1)
-    for i in range(len(driver.find_elements_by_tag_name('a'))-1):
-        e = driver.find_elements_by_tag_name('a')[i]
-        if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
-            e.click()
-            driver.execute_script('window.scrollTo(0,0);')
-            time.sleep(.2)
-            screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'))
-
-# Close browser session
-driver.close()
-
 # Sort files by creation time
-files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screens/' + fn)) for fn in os.listdir('screens/')], key = lambda x: x[1].st_ctime)]
-
-# Convert images from png to jpg
-for i,f in enumerate(files):
-    im = Image.open('screens/' + f[0])
-    im.save('screens/' + str(i) + '_' + f[0].replace('.png','.jpg'),'JPEG')
-    os.remove('screens/' + f[0])
 
 # Build cover page
 print("Generating cover page...")
@@ -545,79 +492,108 @@ runbook = Document('cover.docx')
 
 print("Creating Access table...")
 fuel = fuel_info()
-gen_access_table(fuel)
+gen_access_table()
 runbook.add_page_break()
 
 print("Creating Nodes table...")
-gen_nodes_table(nodedata)
+gen_nodes_table()
 runbook.add_page_break()
 
-
-
+networkdata = []
 for cluster in clusters:
-    results = re.search('(https|http):\/\/.+\/(\d+)',cluster)
-    cluster_id = results.group(2)
-    print("Creating Network table (Environment " + cluster_id + ")")
-    gen_network_layout_table(get_network_layout(cluster_id),cluster_id)
+    networkdata = get_network(token,cluster['id'])
+    print("Creating network table for environment " + cluster['name'] + "...")
+    gen_network_layout_table(get_network_layout(),cluster['name'])
     runbook.add_page_break()
-    with open('network-layout.png','w') as f:
-      tree = nwdiag.parser.parse_string(create_network_diagram(token,cluster_id))
-      diagram = ScreenNodeBuilder.build(tree)
-      draw = DiagramDraw('PNG', diagram, 'network-layout.png',
-          fontmap=None, antialias=False, nodoctype=True)
-      draw.draw()
-      draw.save()
-      f.close()
-      # convert png to jpg
-      im = Image.open('network-layout.png')
-      im.save('network-layout.png'.replace('.png','.jpg'),'JPEG')
-      os.remove('network-layout.png')
+    runbook.add_page_break()
 
-      # add a page to the document
-      last = runbook.paragraphs[-1]
-      p = last._element
-      p.getparent().remove(p)
-      p._p = p._element = None
-      heading = runbook.add_heading("Logical Network Layout", level=1)
-      heading.alignment = 1
-      runbook.add_picture("network-layout.jpg", width=Inches(5.3))
-      pic = runbook.paragraphs[-1]
-      pic.alignment = 1
-    #   if i != len(files)-1:
-        #   runbook.add_page_break()
-
+    tree = nwdiag.parser.parse_string(create_network_diagram(networkdata['networks'],nodedata))
+    diagram = ScreenNodeBuilder.build(tree)
+    draw = DiagramDraw('PNG', diagram, 'screens/network-layout-' + cluster['name'] + '.png',fontmap=None, antialias=False, nodoctype=True)
+    draw.draw()
+    draw.save()
+    add_picture_page('network-layout-' + cluster['name'] + '.png')
 
 print("Creating Support table...")
 gen_support_table()
 runbook.add_page_break()
 runbook.add_page_break()
 
+print("Starting screenshot collection...")
+
+# Fuel main tabs screenshots
+screenshot(None,'Environments','clusters-page')
+screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','Equipment','equipment-page')
+screenshot('https://' + args.host + ':' + args.web_port + '/#releases','Releases','releases-page')
+screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins','plugins-page')
+
+# # Environments screenshots
+# for e in clusters:
+#     c = "https://" + args.host + ':' + args.web_port + '/#cluster/'  + str(e['id'])
+#     nodes = []
+#     for n in nodedata:
+#         if n['cluster'] is e['id']:
+#             nodes.append(n)
+#     # Skip environment if it has no nodes
+#     if not nodes:
+#         continue
+#     for i,n in enumerate(nodes):
+#         cluster = str(e['id'])
+#         # cluster_name =
+#         node = str(n['id'])
+#         if i == 0:
+#             screenshot(c + '/dashboard','Environment: ' + cluster + '_dashboard','cluster-page',True)
+#             screenshot(c + '/nodes','Environment: ' + cluster + '_nodes','nodes-tab',True)
+#         screenshot(c + '/nodes/disks/nodes:' +node,'Environment: ' + cluster + '_node_' + node + '_disks','edit-node-disks-screen',True )
+#         screenshot(c + '/nodes/interfaces/nodes:' +node,'Environment: ' + cluster + '_node_' + node + '_interfaces','ifc-container',True )
+#
+#     driver.get(c + '/network')
+#     wait_for_page_tag_class('network-tab')
+#     for i in range(len(driver.find_elements_by_tag_name('a'))):
+#         e = driver.find_elements_by_tag_name('a')[i]
+#         if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
+#             e.click()
+#             driver.execute_script('window.scrollTo(0,0);')
+#             time.sleep(.2)
+#             screenshot(None,'env_' + cluster + '_network_' + e.text.lower().replace(' ','_'),None)
+#         if 'Other' in e.text:
+#             e.click()
+#             time.sleep(.2)
+#             screenshot(None,'env_' + cluster + '_network_other',None)
+#
+#     driver.get(c + '/settings')
+#     wait_for_page_tag_class('settings-tab')
+#     for i in range(len(driver.find_elements_by_tag_name('a'))-1):
+#         e = driver.find_elements_by_tag_name('a')[i]
+#         if 'subtab-link-' + e.text.lower().replace(' ','_') in e.get_attribute('class'):
+#             e.click()
+#             driver.execute_script('window.scrollTo(0,0);')
+#             time.sleep(.2)
+#             screenshot(None,'env_' + cluster + '_settings_' + e.text.lower().replace(' ','_'),None)
+
+# Close browser session
+driver.close()
+
+files = [(x[0], time.ctime(x[1].st_ctime)) for x in sorted([(fn, os.stat('screens/' + fn)) for fn in os.listdir('screens/')], key = lambda x: x[1].st_ctime)]
+
+print("Converting images to jpg...")
+# Convert images from png to jpg
+for i,f in enumerate(files):
+    im = Image.open('screens/' + f[0])
+    im.save('screens/' + str(i) + '_' + f[0].replace('.png','.jpg'),'JPEG')
+    os.remove('screens/' + f[0])
+
 # Sort screenshots alphanumerically
 files = os.listdir('screens/')
 files.sort(key=natural_sort_key)
 
-#
+# Add screenshot pages
 for i,f in enumerate(files):
-    last = runbook.paragraphs[-1]
-    p = last._element
-    p.getparent().remove(p)
-    p._p = p._element = None
-    heading = runbook.add_heading(titles_handler(f.replace('.jpg','')), level=1)
-    heading.alignment = 1
-    runbook.add_picture('screens/' + f, width=Inches(6.5))
-    pic = runbook.paragraphs[-1]
-    pic.alignment = 1
-    if i != len(files)-1:
-        runbook.add_page_break()
-
-
+    add_picture_page(f)
 
 print("Saving runbook as 'Runbook for " + entries['COVER']['CUSTOMER'] + ".docx'")
 runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
 
-# Save objects as json
-
 # Cleanup
 shutil.rmtree('screens/')
 os.remove('cover.docx')
-os.remove('network-layout.jpg')
