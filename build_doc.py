@@ -341,10 +341,8 @@ def screenshot(page,name,tag,fix=False):
         driver.get(page)
     if tag is not None:
         wait_for_page_tag_class(tag)
-    total_width = driver.execute_script('return document.body.offsetWidth')
     total_height = driver.execute_script('return document.body.parentNode.scrollHeight')
 
-    viewport_width = driver.execute_script('return document.body.clientWidth')
     viewport_height = driver.execute_script('return window.innerHeight')
     if total_height / viewport_height > 1 and total_height - viewport_height > 100 :
         passes = math.ceil(total_height / viewport_height)
@@ -391,7 +389,6 @@ def get_node_NIC_hardware(token, cluster, net_name):
     return nic
 
 def create_network_diagram(networks,cluster):
-    net_loop_count = 0
     diagram_input = "nwdiag {"
     for network in networks:
         try:
