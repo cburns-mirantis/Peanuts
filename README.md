@@ -1,3 +1,6 @@
+# Peanuts
+Automated Documentation and Runbook Generation for Mirantis Services Deployed Clouds
+
 This script is for automating the post deployment runbook.
 
 TODO:
