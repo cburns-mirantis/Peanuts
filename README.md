@@ -67,17 +67,24 @@ This vagrant file sets up the dependencies in an Ubuntu VM and enables you to ru
 
 NOTE: /vagrant directory is only available when starting the VM through 'vagrant up'
 
-Adding styles to the document:
+#Adding styles to the document
 
 #TODO
 
 Output json
+
 Add environment selector
+
 Deployment how to links
+
 Handle openoffice page breaks
+
 switch for screenshotting all nodes instead of summary
+
 auto version
+
 patch 8 for cli health Check
+
 screenshot setup steps for environment
 
 Possibly remove equipment page as the environment nodes screenshot should have it already
@@ -85,16 +92,30 @@ Possibly remove equipment page as the environment nodes screenshot should have i
 #Fixes
 
 Handle no gateway?
+
 Handle slow environments
+
 Add environment selector
+
 management_iface handle domain names
+
 check per role, and only screenshot one per similar hosts
+
 get speed correctly from environments
+
 column widths for Result column in tables
+
 Get DHCP Range
+
 Post creation report or data output
+
 store report in a per run basis, folder per customer, folder per run
+
 timmy tool
 
-Credits:
-Ramon Melero, Matt Schafer, Anton Moczygemba
+#Credits
+Ramon Melero
+
+Matt Schafer
+
+Anton Moczygemba
