@@ -107,7 +107,7 @@ NOTE: /vagrant directory is only available when starting the VM through 'vagrant
 
 * Get DHCP Range
 
-Post creation report or data output
+* Post creation report or data output
 
 * store report in a per run basis, folder per customer, folder per run
 

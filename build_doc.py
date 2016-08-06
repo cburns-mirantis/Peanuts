@@ -566,7 +566,6 @@ def get_node_NIC_hardware(token, cluster, net_name, known_roles, target_node):
 
 def create_network_diagram(networks, cluster, target_node):
     known_roles = []
-    net_loop_count = 0
     diagram_input = "nwdiag {"
     for network in networks:
         try:
@@ -618,6 +617,9 @@ try:
 except FileNotFoundError:
     os.makedirs('screens/')
 
+entries = configparser.ConfigParser()
+entries.read('entries.cfg')
+
 # Handle chromedriver dependency
 if not cmd_exists('chromedriver'):
     sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
@@ -637,7 +639,7 @@ nodedata = get_nodes(token)
 for cluster in clusters:
     if 'operational' not in cluster['status']:
         break
-    start_ostf(token,cluster['id'],args.horizon_username,args.horizon_password)
+    start_ostf(token,cluster['id'],entries['ACCESS']['HOR_USER'],entries['ACCESS']['HOR_PASS'])
 
 # Init Selenium + chromedriver
 driver = webdriver.Chrome()
@@ -662,8 +664,6 @@ password.send_keys(Keys.RETURN)
 
 # Build cover page
 print("Generating cover page...")
-entries = configparser.ConfigParser()
-entries.read('entries.cfg')
 replaces = {
 "CUSTOMER": entries['COVER']['CUSTOMER'],
 "ENV": entries['COVER']['ENV'],
