@@ -6,13 +6,13 @@ Usage for when the environment has non-default credentials:
 build_doc.py [-h] [-u WEB_USERNAME] [-p WEB_PASSWORD]
         [-su SSH_USERNAME] [-sp SSH_PASSWORD] -f HOST
 
-Defaults for web credentials:
+## Defaults for web credentials:
 
-admin / admin
+`admin / admin`
 
-Defaults for ssh credentials:
+## Defaults for ssh credentials:
 
-root / r00tme
+`root / r00tme`
 
 The minimum needed is the address to the fuel host. Can be FQDN or IP.
 
@@ -22,7 +22,7 @@ The 'docs' directory will fill up with individual pages that can be merged.
 
 #Dependancy resolution:
 
-#Ubuntu
+## Ubuntu
 1. Install pip3, libxml and unzip
   sudo apt-get install python3-pip libxml2-dev python3-lxml unzip
 2. Install Chrome
@@ -36,11 +36,11 @@ The 'docs' directory will fill up with individual pages that can be merged.
   unzip chromedriver_linux64.zip
   sudo cp chromedriver /usr/local/bin/
 
-#Centos
+## Centos
 
-#Fedora
+## Fedora
 
-#Mac os
+## Mac os
 
 1. Install python3 and chromedriver
   brew install python3 chromedriver
@@ -51,9 +51,9 @@ The 'docs' directory will fill up with individual pages that can be merged.
 4. Install Chrome
   https://www.google.com/chrome/browser/desktop/
 
-#Windows
+## Windows
 
-#Vagrantfile
+## Vagrantfile
 
 This vagrant file sets up the dependencies in an Ubuntu VM and enables you to run build_doc.py completely from the command line and without taking up your screen.
 
@@ -71,51 +71,51 @@ NOTE: /vagrant directory is only available when starting the VM through 'vagrant
 
 #TODO
 
-Output json
+* Output json
 
-Add environment selector
+* Add environment selector
 
-Deployment how to links
+* Deployment how to links
 
-Handle openoffice page breaks
+* Handle openoffice page breaks
 
-switch for screenshotting all nodes instead of summary
+* switch for screenshotting all nodes instead of summary
 
-auto version
+* auto version
 
-patch 8 for cli health Check
+* patch 8 for cli health Check
 
-screenshot setup steps for environment
+* screenshot setup steps for environment
 
-Possibly remove equipment page as the environment nodes screenshot should have it already
+* Possibly remove equipment page as the environment nodes screenshot should have it already
 
-#Fixes
+# Fixes
 
-Handle no gateway?
+* Handle no gateway?
 
-Handle slow environments
+* Handle slow environments
 
-Add environment selector
+* Add environment selector
 
-management_iface handle domain names
+* management_iface handle domain names
 
-check per role, and only screenshot one per similar hosts
+* check per role, and only screenshot one per similar hosts
 
-get speed correctly from environments
+* get speed correctly from environments
 
-column widths for Result column in tables
+* column widths for Result column in tables
 
-Get DHCP Range
+* Get DHCP Range
 
 Post creation report or data output
 
-store report in a per run basis, folder per customer, folder per run
+* store report in a per run basis, folder per customer, folder per run
 
-timmy tool
+* timmy tool
 
-#Credits
-Ramon Melero
+# Credits
+* Ramon Melero
 
-Matt Schafer
+* Matt Schafer
 
-Anton Moczygemba
+* Anton Moczygemba

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Version 0.03
+# https://github.com/cburns-mirantis/Peanuts
 
 import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re,configparser
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
