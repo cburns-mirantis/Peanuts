@@ -3,18 +3,27 @@ This script is for automating the post deployment runbook.
 TODO:
 
 Output json
-Handle MOS 7
-Handle slow environments
 Add environment selector
+Deployment how to links
+Handle openoffice page breaks
+switch for screenshotting all nodes instead of summary
+auto version
+patch 8 for cli health Check
+screenshot setup steps for environment
+
+Possibly remove equipment page as the environment nodes screenshot should have it already
 
 Fixes:
 
+Handle no gateway?
 management_iface handle domain names
 Fix sorting of pictures
 get cluster ids from API
 get version from api
 check per role, and only screenshot one per similar hosts
 get speed correctly from environments
+column widths for Result column in tables
+
 
 # Mangement Interface
 # Get DHCP Range

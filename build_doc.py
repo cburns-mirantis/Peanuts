@@ -20,11 +20,14 @@ from selenium.common.exceptions import NoSuchElementException
 parser = argparse.ArgumentParser(description='Gather Fuel Screenshots and generate a runbook for delivery to customer.')
 parser.add_argument('-u', '--web-user', action='store', dest='web_username', type=str, help='Fuel Web Username',default='admin')
 parser.add_argument('-p', '--web-pw', action='store', dest='web_password', type=str, help='Fuel Web Password',default='admin')
+parser.add_argument('-hu', '--horizon-user', action='store', dest='horizon_username', type=str, help='Horizon Username',default='admin')
+parser.add_argument('-hp', '--horizon-pw', action='store', dest='horizon_password', type=str, help='Horizon Password',default='admin')
 parser.add_argument('-wp', '--web-port', action='store', dest='web_port', type=str, help='Fuel Web Port',default='8443')
 parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='Fuel SSH Username',default='root')
 parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='Fuel SSH Password',default='r00tme')
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
 args = parser.parse_args()
+
 # Get token from Keystone
 def get_token():
     header = {'Content-Type': 'application/json', 'accept': 'application/json'}
@@ -54,6 +57,131 @@ def get_network(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
 
+def get_test_result(token,cluster_id):
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    return json.loads(requests.get(url='http://' + args.host + ':8777' + '/v1/testruns/last/' + str(cluster_id), headers=header, verify=False).text)
+
+def start_ostf(token,cluster_id,username,password):
+    print("Starting OSTF for environment %d ..." % cluster_id)
+    header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
+    tests =  [
+        {
+            "testset": "sanity",
+            "tests": [],
+            "metadata": {
+                "cluster_id": cluster_id,
+                "ostf_os_access_creds": {
+                        "ostf_os_username": username,
+                        "ostf_os_password": password,
+                        "ostf_os_tenant_name": username
+                }
+            }
+        },
+        {
+            "testset": "smoke",
+            "tests": [],
+            "metadata": {
+                "cluster_id": cluster_id,
+                "ostf_os_access_creds": {
+                        "ostf_os_username": username,
+                        "ostf_os_password": password,
+                        "ostf_os_tenant_name": username
+                }
+            }
+        },
+        {
+            "testset": "ha",
+            "tests": [],
+            "metadata": {
+                "cluster_id": cluster_id,
+                "ostf_os_access_creds": {
+                        "ostf_os_username": username,
+                        "ostf_os_password": password,
+                        "ostf_os_tenant_name": username
+                }
+            }
+        },
+        {
+            "testset": "tests_platform",
+            "tests": [],
+            "metadata": {
+                "cluster_id": cluster_id,
+                "ostf_os_access_creds": {
+                        "ostf_os_username": username,
+                        "ostf_os_password": password,
+                        "ostf_os_tenant_name": username
+                }
+            }
+        },
+        {
+            "testset": "cloudvalidation",
+            "tests": [],
+            "metadata": {
+                "cluster_id": cluster_id,
+                "ostf_os_access_creds": {
+                        "ostf_os_username": username,
+                        "ostf_os_password": password,
+                        "ostf_os_tenant_name": username
+                }
+        }
+    },
+        {
+            "testset": "configuration",
+            "tests": [],
+            "metadata": {
+                "cluster_id": cluster_id,
+                "ostf_os_access_creds": {
+                        "ostf_os_username": username,
+                        "ostf_os_password": password,
+                        "ostf_os_tenant_name": username
+                }
+            }
+        }
+    ]
+    r = requests.post(url='http://' + args.host + ':8777' + '/v1/testruns/',headers=header,verify=False,json=tests,timeout=15)
+    if r.status_code is not 200:
+        sys.exit('Unable to start OSTF')
+    print('Started OSTF.')
+
+def wait_and_collect_ostf(token,cluster_id):
+    while True:
+        tests_completed = 0
+        ostf_results = get_test_result(token,cluster_id)
+        for r in ostf_results:
+            if 'finished' in r['status']:
+                tests_completed += 1
+        if tests_completed == 6:
+            print("OSTF completed for environment",cluster_id)
+            return ostf_results
+            break
+        print(str(tests_completed) + "/6 testsets completed, waiting 15 seconds...")
+        tests_completed = 0
+        time.sleep(15)
+
+def gen_ostf_table(tests,environment_name):
+    for test_count,t in enumerate(tests):
+        row_count = int(len(t['tests']))+1
+        heading = runbook.add_heading('Environment: ' + environment_name + ' ' + t['testset'].title() + ' Health Check',level=1)
+        heading.alignment = 1
+        table = runbook.add_table(row_count, 3)
+        table.style = runbook.styles['Light Grid Accent 1']
+        table.autofit = False
+
+        hdr_cells = table.rows[0].cells
+        hdr_cells[0].text = 'Test'
+        hdr_cells[1].text = 'Result'
+        hdr_cells[2].text = 'Message'
+
+        for row_count,r in enumerate(t['tests']):
+            line = table.rows[row_count+1].cells
+            line[0].text = r['name']
+            line[1].text = r['status']
+            line[2].text = r['message']
+
+        runbook.add_page_break()
+        if test_count+1 is len(tests):
+            runbook.add_page_break()
+
 # Get information about the Fuel Instance through SSH
 def fuel_info():
     ssh = paramiko.SSHClient()
@@ -61,9 +189,13 @@ def fuel_info():
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ip route ls | grep ' + args.host + '| awk \'{ print $3 }\'')
+
     fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('route -n | grep UG | awk \'{ print $2 }\'')
+    # if ssh_stdout.readlines()[0] is not None:
     fuel['gateway'] = ssh_stdout.readlines()[0].replace('\n','')
+    # else:
+        # fuel['gateway'] = "No Gateway"
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
     fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
 
@@ -241,36 +373,36 @@ def docx_replace(old_file,new_file,rep):
 
 # Generate 'Nodes' table
 def gen_nodes_table(cluster_id):
-   if '7.0' in version:
+    if '7.0' in version:
        row_count = len(nodedata)
-   else:
-       row_count = len(nodedata)+1
-   col_count = 6
+    else:
+       row_count = len(nodedata)-1
+    col_count = 6
 
-   heading = runbook.add_heading('Nodes',level=1)
-   heading.alignment = 1
+    heading = runbook.add_heading('Nodes',level=1)
+    heading.alignment = 1
 
-   table = runbook.add_table(row_count, col_count)
-   table.style = runbook.styles['Light Grid Accent 1']
+    table = runbook.add_table(row_count, col_count)
+    table.style = runbook.styles['Light Grid Accent 1']
 
-   hdr_cells = table.rows[0].cells
-   hdr_cells[0].text = 'Hostname'
-   hdr_cells[1].text = 'Role(s)'
-   hdr_cells[2].text = 'Admin network IP address'
-   hdr_cells[3].text = 'Cores x CPU'
-   hdr_cells[4].text = 'RAM'
-   hdr_cells[5].text = 'HDD'
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Hostname'
+    hdr_cells[1].text = 'Role(s)'
+    hdr_cells[2].text = 'Admin network IP address'
+    hdr_cells[3].text = 'Cores x CPU'
+    hdr_cells[4].text = 'RAM'
+    hdr_cells[5].text = 'HDD'
 
-   for nodeCounter, node in enumerate(nodedata):
-      if node['cluster'] is not cluster_id:
-          break
-      nodeRow = table.rows[nodeCounter+1].cells
-      nodeRow[0].text = nodedata[nodeCounter]['hostname']
-      nodeRow[1].text = [(x+', ' if x in nodedata[nodeCounter]['roles'][:-1] else x) for x in nodedata[nodeCounter]['roles']]
-      nodeRow[2].text = nodedata[nodeCounter]['ip']
-      nodeRow[3].text = str(nodedata[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodedata[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
-      nodeRow[4].text = str(int(nodedata[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
-      nodeRow[5].text = [str(x['name']) + ': ' + str(int(x['size']/1073741824)) + 'GB     ' for x in nodedata[nodeCounter]['meta']['disks']]
+    for nodeCounter, node in enumerate(nodedata):
+        if node['cluster'] is not cluster_id:
+            break
+        nodeRow = table.rows[nodeCounter+1].cells
+        nodeRow[0].text = nodedata[nodeCounter]['hostname']
+        nodeRow[1].text = [(x+', ' if x in nodedata[nodeCounter]['roles'][:-1] else x) for x in nodedata[nodeCounter]['roles']]
+        nodeRow[2].text = nodedata[nodeCounter]['ip']
+        nodeRow[3].text = str(nodedata[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodedata[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
+        nodeRow[4].text = str(int(nodedata[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
+        nodeRow[5].text = [str(x['name']) + ': ' + str(int(x['size']/1073741824)) + 'GB     ' for x in nodedata[nodeCounter]['meta']['disks']]
 
 def get_network_layout():
     networks = []
@@ -292,7 +424,6 @@ def get_network_layout():
     return networks
 
 # Generate 'Network Layout' table
-
 def gen_network_layout_table(networks,env):
     row_count = len(networks)+1
     col_count = 4
@@ -348,19 +479,23 @@ def screenshot(page,name,tag,fix=False):
         passes = math.ceil(total_height / viewport_height)
         for i in range(passes):
             if i == 0:
+                print('Screenshot: ' + name)
                 driver.save_screenshot('screens/' + name + '_0.png')
                 add_picture_page('screens/' + name + '_0.png')
                 continue
             driver.execute_script('window.scrollTo(0, '+ str(i*viewport_height) + ');')
             time.sleep(.2)
+            print('Screenshot: ' + name)
             driver.save_screenshot('screens/' + name + '_' + str(i) + '.png')
             add_picture_page('screens/' + name + '_' + str(i) + '.png')
     elif total_height - viewport_height < 100:
         driver.execute_script('window.scrollTo(0, '+ str(viewport_height) + ');')
         time.sleep(.2)
+        print('Screenshot: ' + name)
         driver.save_screenshot('screens/' + name + '.png')
         add_picture_page('screens/' + name + '.png')
     else:
+        print('Screenshot: ' + name)
         driver.save_screenshot('screens/' + name + '.png')
         add_picture_page('screens/' + name + '.png')
 
@@ -371,32 +506,73 @@ def cmd_exists(cmd):
         for path in os.environ['PATH'].split(os.pathsep)
     )
 
-def get_node_NIC_hardware(token, cluster, net_name):
+def generate_server_string(token, cluster, host, physical_NICs):
+    # Create server string
+    server_string = str(host['roles']).replace("[","").replace("]","").replace("'","") + ","
+
+    for NIC in physical_NICs:
+        server_string += NIC  + ","
+    return server_string
+
+def get_unique_hardware(token, nodeinfo, cluster_id):
+    known_roles = []
+    new_nodes = []
+    for host in nodeinfo:
+      if host['cluster'] is cluster_id:
+          if host not in known_roles:
+              physical_NICs = []
+              net_count = 0
+              tmp_NIC = ""
+              for networks in host["network_data"]:
+                  if host["network_data"][net_count]['dev'] not in physical_NICs:
+                      physical_NICs.append(host["network_data"][net_count]['dev'])
+                  net_count += 1
+
+              new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+              if new_node not in known_roles and new_node != ",":
+                known_roles.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
+    return known_roles
+
+def get_node_NIC_hardware(token, cluster, net_name, known_roles, target_node):
     nic = ""
+    new_nodes = []
     for host in cluster:
-        net_count = 0
-        for networks in host["network_data"]:
-            try:
-                if host["network_data"][net_count]['name'] == net_name:
-                    if host["network_data"][net_count]['vlan'] is not None:
-                        nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
-                    else:
-                        nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
-            except:
-                nic += '"' + host['name'] + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
-                pass
-            net_count += 1
+        if host not in known_roles:
+            net_count = 0
+            physical_NICs = []
+            tmp_NIC = ""
+            for networks in host["network_data"]:
+                if host["network_data"][net_count]['dev'] not in physical_NICs:
+                    physical_NICs.append(host["network_data"][net_count]['dev'])
+                try:
+                    if host["network_data"][net_count]['name'] == net_name:
+
+                        if host["network_data"][net_count]['vlan'] is not None:
+                            tmp_NIC += '"' + str(host['roles']) + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
+                        else:
+                            tmp_NIC += '"' + str(host['roles']) + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
+                except:
+                    tmp_NIC += '"' + str(host['roles']) + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
+                    pass
+                net_count += 1
+            new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+            if new_node not in new_nodes and new_node != ",":
+              if new_node == target_node:
+                  new_nodes.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
+                  nic += tmp_NIC
     return nic
 
-def create_network_diagram(networks,cluster):
+def create_network_diagram(networks, cluster, target_node):
+    known_roles = []
+    net_loop_count = 0
     diagram_input = "nwdiag {"
     for network in networks:
         try:
             diagram_input += "network " + network["meta"]["name"] +" {"
-            diagram_input += get_node_NIC_hardware(token, cluster, network["meta"]["name"])
+            diagram_input += get_node_NIC_hardware(token, cluster, network["meta"]["name"], known_roles, target_node)
         except KeyError:
             diagram_input += "network " + network["name"] +" {"
-            diagram_input += get_node_NIC_hardware(token, cluster, network["name"])
+            diagram_input += get_node_NIC_hardware(token, cluster, network["name"], known_roles, target_node)
 
         cidr = network["cidr"]
         if str(cidr) != "None":
@@ -420,7 +596,7 @@ def add_picture_page(filename,page_break=True):
         if '7.0' in version:
             runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(4.0))
         else:
-            runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(5.4))
+            runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(2.7))
     else:
         runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(6.5))
     pic = runbook.paragraphs[-1]
@@ -455,6 +631,11 @@ print("Gathering cluster data...")
 clusters = get_clusters(token)
 print("Gathering node data...")
 nodedata = get_nodes(token)
+
+for cluster in clusters:
+    if 'operational' not in cluster['status']:
+        break
+    start_ostf(token,cluster['id'],args.horizon_username,args.horizon_password)
 
 # Init Selenium + chromedriver
 driver = webdriver.Chrome()
@@ -504,6 +685,8 @@ runbook.add_page_break()
 
 networkdata = []
 for cluster in clusters:
+    if 'operational' not in cluster['status']:
+        break
     print("Creating Nodes table...")
     gen_nodes_table(cluster['id'])
     runbook.add_page_break()
@@ -513,12 +696,22 @@ for cluster in clusters:
     runbook.add_page_break()
     runbook.add_page_break()
 
-    tree = nwdiag.parser.parse_string(create_network_diagram(networkdata['networks'],nodedata))
-    diagram = ScreenNodeBuilder.build(tree)
-    draw = DiagramDraw('PNG', diagram, 'screens/network-layout-' + cluster['name'] + '.png',fontmap=None, antialias=False, nodoctype=True)
-    draw.draw()
-    draw.save()
-    add_picture_page('screens/network-layout-' + cluster['name'] + '.png')
+    cluster_name = cluster['name'].replace(" ","-")
+    target_node_count = 0
+    for target_node in get_unique_hardware(token, nodedata, cluster['id']):
+        tree = nwdiag.parser.parse_string(create_network_diagram(networkdata['networks'], nodedata, target_node))
+        diagram = ScreenNodeBuilder.build(tree)
+        draw = DiagramDraw('PNG', diagram, 'screens/network-layout-' + cluster_name + '-Node' + str(target_node_count) + '.png',fontmap=None, antialias=False, nodoctype=True)
+        draw.draw()
+        draw.save()
+        add_picture_page('screens/network-layout-' + cluster_name + '-Node' + str(target_node_count) + '.png')
+        target_node_count += 1
+    last = runbook.paragraphs[-1]
+    p = last._element
+    p.getparent().remove(p)
+    p._p = p._element = None
+    gen_ostf_table(wait_and_collect_ostf(token,cluster['id']),cluster['name'])
+
 
 print("Starting screenshot collection...")
 
@@ -531,6 +724,8 @@ screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins',
 
 # Environments screenshots
 for e in clusters:
+    if 'operational' not in e['status']:
+        break
     c = "https://" + args.host + ':' + args.web_port + '/#cluster/'  + str(e['id'])
     nodes = []
     for n in nodedata:
@@ -599,6 +794,11 @@ for e in clusters:
 
 # Close browser session
 driver.close()
+
+last = runbook.paragraphs[-1]
+p = last._element
+p.getparent().remove(p)
+p._p = p._element = None
 
 print("Saving runbook as 'Runbook for " + entries['COVER']['CUSTOMER'] + ".docx'")
 runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
