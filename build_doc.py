@@ -53,7 +53,7 @@ def get_clusters(token):
 
 def get_version(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/version',headers=header, verify=False).text)
+    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/version',headers=header, verify=False).text)['release']
 
 def get_network(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
@@ -628,17 +628,23 @@ if not cmd_exists('chromedriver'):
 print("Getting Fuel token...")
 token = get_token()
 # Get Fuel version
-version = get_version(token)['release']
+version = get_version(token)
 print('Fuel Version:',version)
 
 print("Gathering cluster data...")
 clusters = get_clusters(token)
+print(clusters)
 print("Gathering node data...")
 nodedata = get_nodes(token)
 
 for cluster in clusters:
+    print(cluster)
+    print()
     if 'operational' not in cluster['status']:
+        print(cluster['status'])
+        print(cluster['name'])
         break
+    print("op")
     start_ostf(token,cluster['id'],entries['ACCESS']['HOR_USER'],entries['ACCESS']['HOR_PASS'])
 
 # Init Selenium + chromedriver
@@ -793,6 +799,9 @@ for e in clusters:
             element.click()
             time.sleep(.2)
             screenshot(None,'Environment: ' + e['name'] + ' Settings Public TLS',None)
+    # driver.get(c + '/healthcheck')
+    # wait_for_page_tag_class('healthcheck-controls')
+    # screenshot(None,'Environment: ' + e['name'] + 'Health Check',None)
 
 # Close browser session
 driver.close()
