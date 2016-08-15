@@ -501,12 +501,14 @@ def screenshot(page,name,tag,fix=False):
         driver.save_screenshot('screens/' + name + '.png')
         add_picture_page('screens/' + name + '.png')
 
+
 # Checks PATH for chromedriver dependency
 def cmd_exists(cmd):
     return any(
         os.access(os.path.join(path, cmd), os.X_OK)
         for path in os.environ['PATH'].split(os.pathsep)
     )
+
 
 def generate_server_string(token, cluster, host, physical_NICs):
     # Create server string
@@ -516,29 +518,40 @@ def generate_server_string(token, cluster, host, physical_NICs):
         server_string += NIC  + ","
     return server_string
 
-def get_unique_hardware(token, nodeinfo, cluster_id):
-    known_roles = []
-    new_nodes = []
-    for host in nodeinfo:
-      if host['cluster'] is cluster_id:
-          if host not in known_roles:
-              physical_NICs = []
-              net_count = 0
-              tmp_NIC = ""
-              for networks in host["network_data"]:
-                  if host["network_data"][net_count]['dev'] not in physical_NICs:
-                      physical_NICs.append(host["network_data"][net_count]['dev'])
-                  net_count += 1
 
-              new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
-              if new_node not in known_roles and new_node != ",":
-                known_roles.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
-    return known_roles
+# def get_unique_hardware(token, nodeinfo, cluster_id):
+#     known_roles = []
+#     new_nodes = []
+#     for host in nodeinfo:
+#       if host['cluster'] is cluster_id:
+#           if host not in known_roles:
+#               physical_NICs = []
+#               net_count = 0
+#               tmp_NIC = ""
+#               for networks in host["network_data"]:
+#                   if host["network_data"][net_count]['dev'] not in physical_NICs:
+#                       physical_NICs.append(host["network_data"][net_count]['dev'])
+#                   net_count += 1
 
-def get_node_NIC_hardware(token, cluster, net_name, known_roles, target_node):
+#               new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+#               if new_node not in known_roles and new_node != ",":
+#                 known_roles.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
+#     return known_roles
+
+
+# New stuff
+def get_node_NIC_hardware(token, hosts, cluster, net_name):
     nic = ""
     new_nodes = []
-    for host in cluster:
+    known_roles = []
+
+    a = []
+
+    # for host in cluster:
+    # Pre-count the total number of nodes with the same type of hardware
+    physical_NICs = []
+    for host in hosts:
+
         if host not in known_roles:
             net_count = 0
             physical_NICs = []
@@ -546,34 +559,84 @@ def get_node_NIC_hardware(token, cluster, net_name, known_roles, target_node):
             for networks in host["network_data"]:
                 if host["network_data"][net_count]['dev'] not in physical_NICs:
                     physical_NICs.append(host["network_data"][net_count]['dev'])
+        new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+
+        node_found = False
+        i = 0
+        while i < len(a):
+            if a[i][0] == new_node:
+                node_found = True
+            i += 1
+
+        if node_found:
+            i = 0
+            while i < len(a):
+                if a[i][0] == new_node:
+                     a[i][1] += 1  
+                i += 1
+
+        else:
+            node = []
+            node.append(new_node)
+            node.append(1)
+            a.append(node)  
+
+    for host in hosts:
+        if host not in known_roles:
+            net_count = 0
+            physical_NICs = []
+            tmp_NIC = ""
+            
+            title = ""
+            i = 0
+            while i < len(a):
+                node_name = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+                if a[i][0] == node_name:
+                    title = str(a[i][0]) + " " + str(a[i][1])
+                i += 1
+
+            for networks in host["network_data"]:
+                if host["network_data"][net_count]['dev'] not in physical_NICs:
+                    physical_NICs.append(host["network_data"][net_count]['dev'])
+
+                i = 0
+                while i < len(a):
+                    node_name = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+                    if a[i][0] == node_name:
+                        title = str(host['roles']) + "x" + str(a[i][1])
+                    i += 1
+
                 try:
                     if host["network_data"][net_count]['name'] == net_name:
 
                         if host["network_data"][net_count]['vlan'] is not None:
-                            tmp_NIC += '"' + str(host['roles']) + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
+                            tmp_NIC += '"' + title + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + ', VLAN ' + str(host["network_data"][net_count]['vlan']) +'"];'
                         else:
-                            tmp_NIC += '"' + str(host['roles']) + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
+                            tmp_NIC += '"' + title + '" [address = "'+ host["network_data"][net_count]['dev'] + ', ' + host["network_data"][net_count]['ip'] + '"];'
                 except:
-                    tmp_NIC += '"' + str(host['roles']) + ' ' + host['hostname'] + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
+                    tmp_NIC += '"' + title + '" [address = "'+ host["network_data"][net_count]['dev'] + '"];'
                     pass
                 net_count += 1
+
             new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
+
             if new_node not in new_nodes and new_node != ",":
-              if new_node == target_node:
-                  new_nodes.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
-                  nic += tmp_NIC
+                #if new_node == target_node:
+                new_nodes.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
+                nic += tmp_NIC
     return nic
 
-def create_network_diagram(networks, cluster, target_node):
-    known_roles = []
+
+def create_network_diagram(token, networks, cluster):
+    hosts = get_nodes(token)
     diagram_input = "nwdiag {"
     for network in networks:
         try:
             diagram_input += "network " + network["meta"]["name"] +" {"
-            diagram_input += get_node_NIC_hardware(token, cluster, network["meta"]["name"], known_roles, target_node)
+            diagram_input += get_node_NIC_hardware(token, hosts, cluster, network["meta"]["name"])
         except KeyError:
             diagram_input += "network " + network["name"] +" {"
-            diagram_input += get_node_NIC_hardware(token, cluster, network["name"], known_roles, target_node)
+            diagram_input += get_node_NIC_hardware(token, hosts, cluster, network["name"])
 
         cidr = network["cidr"]
         if str(cidr) != "None":
@@ -581,6 +644,7 @@ def create_network_diagram(networks, cluster, target_node):
         diagram_input += "}"
     diagram_input += "}"
     return diagram_input
+
 
 def add_picture_page(filename,page_break=True):
     last = runbook.paragraphs[-1]
@@ -706,14 +770,18 @@ for cluster in clusters:
 
     cluster_name = cluster['name'].replace(" ","-")
     target_node_count = 0
-    for target_node in get_unique_hardware(token, nodedata, cluster['id']):
-        tree = nwdiag.parser.parse_string(create_network_diagram(networkdata['networks'], nodedata, target_node))
-        diagram = ScreenNodeBuilder.build(tree)
-        draw = DiagramDraw('PNG', diagram, 'screens/network-layout-' + cluster_name + '-Node' + str(target_node_count) + '.png',fontmap=None, antialias=False, nodoctype=True)
-        draw.draw()
-        draw.save()
-        add_picture_page('screens/network-layout-' + cluster_name + '-Node' + str(target_node_count) + '.png')
-        target_node_count += 1
+
+    print("Creating New Network Diagram...")
+    # print(create_network_diagram(token, networkdata['networks'], cluster))
+
+    tree = nwdiag.parser.parse_string(create_network_diagram(token, networkdata['networks'], cluster))
+    diagram = ScreenNodeBuilder.build(tree)
+    draw = DiagramDraw('PNG', diagram, 'screens/network-layout.png',fontmap=None, antialias=False, nodoctype=True)
+    draw.draw()
+    draw.save()
+    add_picture_page('screens/network-layout.png')
+    target_node_count += 1
+
     last = runbook.paragraphs[-1]
     p = last._element
     p.getparent().remove(p)
