@@ -165,20 +165,22 @@ def gen_ostf_table(tests,environment_name):
         row_count = int(len(t['tests']))+1
         heading = runbook.add_heading('Environment: ' + environment_name + ' ' + t['testset'].title() + ' Health Check',level=1)
         heading.alignment = 1
-        table = runbook.add_table(row_count, 3)
+        table = runbook.add_table(row_count, 4)
         table.style = runbook.styles['Light Grid Accent 1']
         table.autofit = False
 
         hdr_cells = table.rows[0].cells
         hdr_cells[0].text = 'Test'
         hdr_cells[1].text = 'Result'
-        hdr_cells[2].text = 'Message'
+        hdr_cells[2].text = 'Time Taken'
+        hdr_cells[3].text = 'Message'
 
         for row_count,r in enumerate(t['tests']):
             line = table.rows[row_count+1].cells
             line[0].text = r['name']
             line[1].text = r['status']
-            line[2].text = r['message']
+            line[2].text = r['taken']
+            line[3].text = r['message']
 
         runbook.add_page_break()
         if test_count+1 is len(tests):
@@ -572,21 +574,21 @@ def get_node_NIC_hardware(token, hosts, cluster, net_name):
             i = 0
             while i < len(a):
                 if a[i][0] == new_node:
-                     a[i][1] += 1  
+                     a[i][1] += 1
                 i += 1
 
         else:
             node = []
             node.append(new_node)
             node.append(1)
-            a.append(node)  
+            a.append(node)
 
     for host in hosts:
         if host not in known_roles:
             net_count = 0
             physical_NICs = []
             tmp_NIC = ""
-            
+
             title = ""
             i = 0
             while i < len(a):
