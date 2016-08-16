@@ -182,15 +182,16 @@ def perform_ha_tests(id):
         if str(node_id) in str(n['id']):
             node_ip = n['ip']
 
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    try:
-        ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
-    except paramiko.ssh_exception.AuthenticationException:
-        sys.exit("SSH authentication failed. Check username & password.")
-    print('Sending shutdown command...')
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' shutdown -h 0\'')
+    # ssh = paramiko.SSHClient()
+    # ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # try:
+    #     ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
+    # except paramiko.ssh_exception.AuthenticationException:
+    #     sys.exit("SSH authentication failed. Check username & password.")
+    # print('Sending shutdown command...')
+    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' shutdown -h 0\'')
 
+    input("Press enter once the host has been gracefully shutdown.")
     while(True):
         if os.system('ping -c 1 -t 5 ' + node_ip) == 0:
             print("Waiting 15 seconds for host to become unavailable...")
@@ -200,14 +201,35 @@ def perform_ha_tests(id):
             print("Host is down.")
             break
     launch_5_vms_and_verify()
-    input("press enter once host has booted.")
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' \"echo c > /proc/sysrq-trigger\"\'')
+    input("Press enter once host has booted.")
     launch_5_vms_and_verify()
-    input("press enter once host has booted.")
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' ip link set dev br-mgmt down;sleep 120;ip link set dev br-mgmt up\'')
+    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' \"echo c > /proc/sysrq-trigger\"\'')
+    input("Press enter once the host has been forcefully shutdown.")
+    while(True):
+        if os.system('ping -c 1 -t 5 ' + node_ip) == 0:
+            print("Waiting 15 seconds for host to become unavailable...")
+            time.sleep(15)
+            continue
+        else:
+            print("Host is down.")
+            break
     launch_5_vms_and_verify()
-    input("press enter once host has booted.")
+    input("Press enter once host has booted.")
+    launch_5_vms_and_verify()
+    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' ip link set dev br-mgmt down;sleep 120;ip link set dev br-mgmt up\'')
 
+    input("Press enter once the host has had it's network connection cut.")
+    while(True):
+        if os.system('ping -c 1 -t 5 ' + node_ip) == 0:
+            print("Waiting 15 seconds for host to become unavailable...")
+            time.sleep(15)
+            continue
+        else:
+            print("Host is down.")
+            break
+    launch_5_vms_and_verify()
+    input("Press enter once host has booted.")
+    launch_5_vms_and_verify()
 
 
 def gen_ha(results):
