@@ -12,6 +12,8 @@ from docx.enum.style import WD_STYLE
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 from novaclient.client import Client
+from novaclient.exceptions import BadRequest
+from novaclient.exceptions import ClientException
 
 parser = argparse.ArgumentParser(description='Gather Fuel Screenshots and generate a runbook for delivery to customer.')
 parser.add_argument('-u', '--web-user', action='store', dest='web_username', type=str, help='Fuel Web Username',default='admin')
@@ -199,12 +201,12 @@ def perform_ha_tests(id):
             break
     launch_5_vms_and_verify()
     input("press enter once host has booted.")
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' echo c > /proc/sysrq-trigger\'')
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' \"echo c > /proc/sysrq-trigger\"\'')
     launch_5_vms_and_verify()
     input("press enter once host has booted.")
-    # ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' ip link set dev eth0 down\'')
-    # launch_5_vms_and_verify()
-    # input("press enter once host has booted.")
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ssh root@' + args.host + ' -t \'ssh root@' + node_ip + ' ip link set dev br-mgmt down;sleep 120;ip link set dev br-mgmt up\'')
+    launch_5_vms_and_verify()
+    input("press enter once host has booted.")
 
 
 
