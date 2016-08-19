@@ -1,0 +1,134 @@
+<!doctype html>
+<html class="no-js" lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runbook Builder | Mirantis</title>
+    <link rel="stylesheet" href="resources/foundation.css">
+    <link rel="stylesheet" href="resources/app.css">
+  </head>
+  <body>
+    <form action="cgi/report.py" method="post" data-abide novalidate>
+      <div class="row">
+        <h1 class="small-6 column ">Runbook Builder</h1>
+        <img alt="logo" class="small-2 small-offset-4 column" src="resources/logo.png" />
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Fuel Address
+            <input type="text" placeholder="http://10.20.0.2" name="address" required pattern="url" value="https://"/>
+          </label>
+          <p class="help-text">Url or IP address</p>
+        </div>
+        <div class="small-6 column">
+          <label>Fuel Web Port
+            <input type="text" placeholder="8443" name="web_port" pattern="number" />
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Fuel Web Username
+            <input type="text" placeholder="admin" name="web_username" />
+          </label>
+        </div>
+        <div class="small-6 column">
+          <label>Fuel Web Password
+            <input type="password" placeholder="admin" name="web_pass" />
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Fuel SSH Username
+            <input type="text" placeholder="root" name="ssh_user" />
+          </label>
+        </div>
+        <div class="small-6 column">
+          <label>Fuel SSH Password
+            <input type="password" placeholder="r00tme" name="ssh_pass" />
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Customer Name
+            <input type="text" placeholder="Some Customer" name="" required/>
+          </label>
+        </div>
+        <div class="small-6 column">
+          <label>Type of environment
+            <input type="text" placeholder="Staging" name="" required/>
+          </label>
+          <p class="help-text">Staging, Production, etc.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Deployment Engineer
+            <input type="text" placeholder="Some Engineer, sengineer@mirantis.com" name="" required/>
+          </label>
+          <p class="help-text">Name and Email</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Horizon Username
+            <input type="text" placeholder="" name="" />
+          </label>
+        </div>
+        <div class="small-6 column">
+          <label>Horizon Password
+            <input type="text" placeholder="" name="" />
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label> Timezone
+            <input type="text" placeholder="" name="" value="America/Central"/>
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Customer Success Manager
+            <input type="text" placeholder="Some Person, sperson@mirantis.com" name="customer_manager" id="customer_manager"/>
+          </label>
+          <p class="help-text">Name and Email</p>
+        </div>
+      </div>
+      <div class="row">
+        <fieldset class="large-4 columns fieldset">
+          <legend>Customer's Entitlement Package:</legend>
+          <input type="radio" name="entitlement" value="1" id="r_1" required><label for="r_1">1: 8 x 5</label>
+          <input type="radio" name="entitlement" value="2" id="r_2" required><label for="r_2">2: 24 x 7</label>
+          <input type="radio" name="entitlement" value="3" id="r_3" required><label for="r_3">3: Proactive</label>
+        </fieldset>
+        <fieldset class="large-7 columns fieldset">
+          <legend>Select OSTF Tests, if any</legend>
+          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Sanity Tests</label>
+          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Functional Tests</label>
+          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">HA Tests</label>
+          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Platform Tests</label></br>
+          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Cloud Validation Tests</label>
+          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Configuration Tests</label>
+        </fieldset>
+      </div>
+
+
+
+      <div class="row">
+        <div class="small-12 column">
+          <input type="submit" value="Build Runbook" class="button" />
+        </div>
+      </div>
+    </form>
+
+    <script src="resources/jquery.js"></script>
+    <script src="resources/what-input.js"></script>
+    <script src="resources/foundation.js"></script>
+    <script src="resources/app.js"></script>
+  </body>
+</html>

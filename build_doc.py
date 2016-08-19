@@ -3,6 +3,7 @@
 # https://github.com/cburns-mirantis/Peanuts
 
 import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re,configparser
+from tabulate import tabulate
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -27,7 +28,11 @@ parser.add_argument('-hp', '--horizon-pw', action='store', dest='horizon_passwor
 parser.add_argument('-wp', '--web-port', action='store', dest='web_port', type=str, help='Fuel Web Port',default='8443')
 parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='Fuel SSH Username',default='root')
 parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='Fuel SSH Password',default='r00tme')
+parser.add_argument('-e', '--env', action='store', dest='environment', type=str, help='Environment to run the runbook against')
+parser.add_argument('-of', '--output-file', action='store', dest='output_file', type=str, help='Filename to save file as')
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
+parser.add_argument('-o','--ostf',action="store_true",dest="ostf")
+parser.add_argument('-t','--test',action="append",dest="tests")
 args = parser.parse_args()
 
 # Get token from Keystone
@@ -179,7 +184,7 @@ def gen_ostf_table(tests,environment_name):
             line = table.rows[row_count+1].cells
             line[0].text = r['name']
             line[1].text = r['status']
-            line[2].text = r['taken']
+            line[2].text = "%.2f" % r['taken']
             line[3].text = r['message']
 
         runbook.add_page_break()
@@ -503,14 +508,12 @@ def screenshot(page,name,tag,fix=False):
         driver.save_screenshot('screens/' + name + '.png')
         add_picture_page('screens/' + name + '.png')
 
-
 # Checks PATH for chromedriver dependency
 def cmd_exists(cmd):
     return any(
         os.access(os.path.join(path, cmd), os.X_OK)
         for path in os.environ['PATH'].split(os.pathsep)
     )
-
 
 def generate_server_string(token, cluster, host, physical_NICs):
     # Create server string
@@ -520,28 +523,6 @@ def generate_server_string(token, cluster, host, physical_NICs):
         server_string += NIC  + ","
     return server_string
 
-
-# def get_unique_hardware(token, nodeinfo, cluster_id):
-#     known_roles = []
-#     new_nodes = []
-#     for host in nodeinfo:
-#       if host['cluster'] is cluster_id:
-#           if host not in known_roles:
-#               physical_NICs = []
-#               net_count = 0
-#               tmp_NIC = ""
-#               for networks in host["network_data"]:
-#                   if host["network_data"][net_count]['dev'] not in physical_NICs:
-#                       physical_NICs.append(host["network_data"][net_count]['dev'])
-#                   net_count += 1
-
-#               new_node = generate_server_string(token, cluster, host, physical_NICs).replace(",","")
-#               if new_node not in known_roles and new_node != ",":
-#                 known_roles.append(generate_server_string(token, cluster, host, physical_NICs).replace(",",""))
-#     return known_roles
-
-
-# New stuff
 def get_node_NIC_hardware(token, hosts, cluster, net_name):
     nic = ""
     new_nodes = []
@@ -628,7 +609,6 @@ def get_node_NIC_hardware(token, hosts, cluster, net_name):
                 nic += tmp_NIC
     return nic
 
-
 def create_network_diagram(token, networks, cluster):
     hosts = get_nodes(token)
     diagram_input = "nwdiag {"
@@ -647,7 +627,6 @@ def create_network_diagram(token, networks, cluster):
     diagram_input += "}"
     return diagram_input
 
-
 def add_picture_page(filename,page_break=True):
     last = runbook.paragraphs[-1]
     p = last._element
@@ -660,10 +639,7 @@ def add_picture_page(filename,page_break=True):
     heading = runbook.add_heading(filename.replace('.png','').replace('screens/',''), level=1)
     heading.alignment = 1
     if "network-layout" in filename:
-        if '7.0' in version:
-            runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(4.0))
-        else:
-            runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(2.7))
+        runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(4.0))
     else:
         runbook.add_picture( filename.replace('.png','.jpg'), width=Inches(6.5))
     pic = runbook.paragraphs[-1]
@@ -671,6 +647,13 @@ def add_picture_page(filename,page_break=True):
     if page_break:
         runbook.add_page_break()
     os.remove(filename)
+
+def count_cluster_nodes(id):
+    count = 0
+    for n in nodedata:
+        if str(id) in str(n['cluster']):
+            count += 1
+    return str(count)
 
 # =========================================
 # INIT
@@ -699,18 +682,22 @@ print('Fuel Version:',version)
 
 print("Gathering cluster data...")
 clusters = get_clusters(token)
-print(clusters)
 print("Gathering node data...")
 nodedata = get_nodes(token)
 
+table = []
+# choose environment
+for c in clusters:
+    row = [c['id'],c['name'],c['fuel_version'],c['status'],count_cluster_nodes(c['id'])]
+    table.append(row)
+
+print (tabulate(table,headers=["ID","Name","Version","Status","Nodes"]))
+
+env_id = input("\nEnter the ID of the environment that you would like to generate the run for:\n")
+
 for cluster in clusters:
-    print(cluster)
-    print()
     if 'operational' not in cluster['status']:
-        print(cluster['status'])
-        print(cluster['name'])
         break
-    print("op")
     start_ostf(token,cluster['id'],entries['ACCESS']['HOR_USER'],entries['ACCESS']['HOR_PASS'])
 
 # Init Selenium + chromedriver
