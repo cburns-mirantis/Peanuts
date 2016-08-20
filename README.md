@@ -119,3 +119,7 @@ NOTE: /vagrant directory is only available when starting the VM through 'vagrant
 * Matt Schafer
 
 * Anton Moczygemba
+
+* Jerry Keen
+
+* Colin Burns

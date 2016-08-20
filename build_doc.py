@@ -28,8 +28,15 @@ parser.add_argument('-hp', '--horizon-pw', action='store', dest='horizon_passwor
 parser.add_argument('-wp', '--web-port', action='store', dest='web_port', type=str, help='Fuel Web Port',default='8443')
 parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='Fuel SSH Username',default='root')
 parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='Fuel SSH Password',default='r00tme')
-parser.add_argument('-e', '--env', action='store', dest='environment', type=str, help='Environment to run the runbook against')
+parser.add_argument('-env', '--environment', action='store', dest='environment', type=str, help='Environment to run the runbook against')
 parser.add_argument('-of', '--output-file', action='store', dest='output_file', type=str, help='Filename to save file as')
+parser.add_argument('-cn', '--customer-name', action='store', dest='customer_name', type=str, help='Customer\'s name')
+parser.add_argument('-tz', '--time-zone', action='store', dest='timezone', type=str, help='Timezone for support')
+parser.add_argument('-e', '--entitlement', action='store', dest='entitlement', type=str, help='Customer\'s Support Entitlement')
+parser.add_argument('-et', '--environment-type', action='store', dest='environment_type', type=str, help='Production, Staging, etc.')
+parser.add_argument('-cm', '--customer-manager', action='store', dest='customer_manager', type=str, help='Customer Manager for Proactive Entitlements')
+parser.add_argument('-de', '--deployment-engineer', action='store', dest='deployment_engineer', type=str, help='Engineer\'s name generating the report')
+parser.add_argument('-fn', '--filename', action='store', dest='filename', type=str, help='Output filename')
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
 parser.add_argument('-o','--ostf',action="store_true",dest="ostf")
 parser.add_argument('-t','--test',action="append",dest="tests")
@@ -208,7 +215,7 @@ def fuel_info():
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
     fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
 
-    fuel['url'] = 'https://' + args.host + ':' + args.web_port
+    # fuel['url'] = 'https://' + args.host + ':' + args.web_port
     fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     fuel['web'] = {'username':args.web_username,'password':args.web_password}
     return fuel
@@ -230,11 +237,11 @@ def gen_access_table():
 
    line1 = table.rows[1].cells
    line1[0].text = 'Fuel UI Master Node URL'
-   line1[1].text = fuel['url']
+   line1[1].text = 'https://' + args.host + ':' + args.web_port
 
    line2 = table.rows[2].cells
    line2[0].text = 'Fuel UI Credentials'
-   line2[1].text = fuel['web']['username'] + ' / ' + fuel['web']['password']
+   line2[1].text = args.web_username + ' / ' + args.web_password
 
    line3 = table.rows[3].cells
    line3[0].text = 'Fuel Master Node IP'
@@ -242,23 +249,24 @@ def gen_access_table():
 
    line4 = table.rows[4].cells
    line4[0].text = 'Fuel SSH Credentials'
-   line4[1].text = fuel['ssh']['username'] + ' / ' + fuel['ssh']['password']
+   line4[1].text = args.ssh_username + ' / ' + args.ssh_password
 
    line5 = table.rows[5].cells
    line5[0].text = 'OpenStack Nodes SSH Credentials'
-   line5[1].text = fuel['ssh']['username'] + ' / ' + fuel['ssh']['password']
+   line5[1].text = args.ssh_username + ' / ' + args.ssh_password
 
    line6 = table.rows[6].cells
    line6[0].text = 'OpenStack Horizon URL'
-   line6[1].text = entries['ACCESS']['HOR_URL']
+   # line6[1].text = entries['ACCESS']['HOR_URL']
 
    line7 = table.rows[7].cells
    line7[0].text = 'OpenStack Horizon Credentials'
-   line7[1].text = entries['ACCESS']['HOR_USER'] + ' / ' + entries['ACCESS']['HOR_PASS']
+   line7[1].text = args.horizon_username + ' / ' + args.horizon_password
 
 # Handle entitlement table based on Support entitlement level
 def entitlement_handler(entitlement):
     support_services = {}
+    print(entitlement)
     if int(entitlement) is 1:
         support_services =  {
             'ENTITLEMENT':'8 x 5',
@@ -295,9 +303,9 @@ def entitlement_handler(entitlement):
 def gen_support_table():
     row_count = 14
     col_count = 2
-    if int(entries['SUPPORT']['ENTITLEMENT']) is 3:
+    if args.entitlement is 3:
         row_count += 1
-    entitlements = entitlement_handler(entries['SUPPORT']['ENTITLEMENT'])
+    entitlements = entitlement_handler(args.entitlement)
 
     heading = runbook.add_heading('Support Information',level=1)
     heading.alignment = 1
@@ -310,7 +318,7 @@ def gen_support_table():
 
     line1 = table.rows[1].cells
     line1[0].text = 'Customer Name'
-    line1[1].text = entries['COVER']['CUSTOMER']
+    line1[1].text = args.customer_name
 
     line2 = table.rows[2].cells
     line2[0].text = 'Environment ID'
@@ -330,7 +338,7 @@ def gen_support_table():
 
     line6 = table.rows[6].cells
     line6[0].text = 'Support Timezone'
-    line6[1].text = entries['SUPPORT']['E_TIMEZONE']
+    line6[1].text = args.timezone
 
     line7 = table.rows[7].cells
     line7[0].text = 'Support Phone Numbers'
@@ -360,10 +368,10 @@ def gen_support_table():
     line13[0].text = 'Severity 4 SLA'
     line13[1].text = entitlements['E_SEV4']
 
-    if int(entries['SUPPORT']['ENTITLEMENT']) is 3:
+    if args.entitlement is 3:
        line14 = table.rows[14].cells
        line14[0].text = 'Customer Success Manager'
-       line14[1].text = entries['SUPPORT']['E_CONTACT']
+       line14[1].text = args.entitlement
 
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
@@ -666,8 +674,8 @@ try:
 except FileNotFoundError:
     os.makedirs('screens/')
 
-entries = configparser.ConfigParser()
-entries.read('entries.cfg')
+# entries = configparser.ConfigParser()
+# entries.read('entries.cfg')
 
 # Handle chromedriver dependency
 if not cmd_exists('chromedriver'):
@@ -685,20 +693,10 @@ clusters = get_clusters(token)
 print("Gathering node data...")
 nodedata = get_nodes(token)
 
-table = []
-# choose environment
-for c in clusters:
-    row = [c['id'],c['name'],c['fuel_version'],c['status'],count_cluster_nodes(c['id'])]
-    table.append(row)
-
-print (tabulate(table,headers=["ID","Name","Version","Status","Nodes"]))
-
-env_id = input("\nEnter the ID of the environment that you would like to generate the run for:\n")
-
 for cluster in clusters:
     if 'operational' not in cluster['status']:
         break
-    start_ostf(token,cluster['id'],entries['ACCESS']['HOR_USER'],entries['ACCESS']['HOR_PASS'])
+    start_ostf(token,cluster['id'],args.horizon_password,args.horizon_username)
 
 # Init Selenium + chromedriver
 driver = webdriver.Chrome()
@@ -724,12 +722,13 @@ password.send_keys(Keys.RETURN)
 # Build cover page
 print("Generating cover page...")
 replaces = {
-"CUSTOMER": entries['COVER']['CUSTOMER'],
-"ENV": entries['COVER']['ENV'],
-"RELEASE": entries['COVER']['RELEASE'],
+"CUSTOMER": args.customer_name,
+"ENV": args.environment_type,
+# "RELEASE": entries['COVER']['RELEASE'],
 "DATE": time.strftime('%d %B, %Y'),
-"AUTHORS": entries['COVER']['AUTHORS']
+"AUTHORS": args.deployment_engineer
 }
+print(replaces)
 docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
@@ -868,8 +867,8 @@ p = last._element
 p.getparent().remove(p)
 p._p = p._element = None
 
-print("Saving runbook as 'Runbook for " + entries['COVER']['CUSTOMER'] + ".docx'")
-runbook.save('Runbook for ' + entries['COVER']['CUSTOMER'] + '.docx')
+print("Saving runbook as 'Runbook for " + args.customer_name + ".docx'")
+runbook.save('Runbook for ' + args.customer_name + '.docx')
 
 # Cleanup
 shutil.rmtree('screens/')

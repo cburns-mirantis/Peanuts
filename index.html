@@ -9,11 +9,21 @@
     <link rel="stylesheet" href="resources/app.css">
   </head>
   <body>
-    <form action="cgi/report.py" method="post" data-abide novalidate>
+    <form action="cgi/report.py" method="post" id="form" data-abide novalidate>
       <div class="row">
         <h1 class="small-6 column ">Runbook Builder</h1>
-        <img alt="logo" class="small-2 small-offset-4 column" src="resources/logo.png" />
+        <img alt="logo" class="small-2 column" src="resources/logo.png" />
       </div>
+      <div class="row">
+        <fieldset class="large-6 columns fieldset">
+          <legend>Customer's Entitlement Package:</legend>
+          <input type="radio" name="entitlement" value="1" id="r_1" required><label for="r_1">1: 8 x 5</label>
+          <input type="radio" name="entitlement" value="2" id="r_2" required><label for="r_2">2: 24 x 7</label>
+          <input type="radio" name="entitlement" value="3" id="r_3" required><label for="r_3">3: Proactive</label>
+        </fieldset>
+      </div>
+
+
       <div class="row">
         <div class="small-6 column">
           <label>Fuel Address
@@ -21,16 +31,11 @@
           </label>
           <p class="help-text">Url or IP address</p>
         </div>
-        <div class="small-6 column">
-          <label>Fuel Web Port
-            <input type="text" placeholder="8443" name="web_port" pattern="number" />
-          </label>
-        </div>
       </div>
       <div class="row">
         <div class="small-6 column">
           <label>Fuel Web Username
-            <input type="text" placeholder="admin" name="web_username" />
+            <input type="text" placeholder="admin" name="web_user" />
           </label>
         </div>
         <div class="small-6 column">
@@ -54,74 +59,83 @@
       <div class="row">
         <div class="small-6 column">
           <label>Customer Name
-            <input type="text" placeholder="Some Customer" name="" required/>
+            <input type="text" placeholder="Some Customer" name="customer_name" required/>
           </label>
         </div>
         <div class="small-6 column">
+          <label>Environment ID
+            <input type="text" placeholder="Some Customer" name="customer_name" required pattern="number"/>
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label>Deployment Engineer
+            <input type="text" placeholder="Some Engineer, sengineer@mirantis.com" name="deployment_engineer" required/>
+          </label>
+          <p class="help-text">Name and Email</p>
+        </div>
+        <div class="small-6 column">
           <label>Type of environment
-            <input type="text" placeholder="Staging" name="" required/>
+            <input type="text" placeholder="Staging" name="environment_type" required/>
           </label>
           <p class="help-text">Staging, Production, etc.</p>
         </div>
       </div>
       <div class="row">
         <div class="small-6 column">
-          <label>Deployment Engineer
-            <input type="text" placeholder="Some Engineer, sengineer@mirantis.com" name="" required/>
-          </label>
-          <p class="help-text">Name and Email</p>
-        </div>
-      </div>
-      <div class="row">
-        <div class="small-6 column">
           <label>Horizon Username
-            <input type="text" placeholder="" name="" />
+            <input type="text" placeholder="admin" name="horizon_user" />
           </label>
         </div>
         <div class="small-6 column">
           <label>Horizon Password
-            <input type="text" placeholder="" name="" />
+            <input type="password" placeholder="admin" name="horizon_pass" />
           </label>
         </div>
       </div>
       <div class="row">
         <div class="small-6 column">
           <label> Timezone
-            <input type="text" placeholder="" name="" value="America/Central"/>
+            <input type="text" placeholder="America/Central" name="timezone" value="America/Central"/>
           </label>
         </div>
       </div>
       <div class="row">
         <div class="small-6 column">
-          <label>Customer Success Manager
+          <label id="cs_label">Customer Success Manager
             <input type="text" placeholder="Some Person, sperson@mirantis.com" name="customer_manager" id="customer_manager"/>
           </label>
           <p class="help-text">Name and Email</p>
         </div>
+        <div class="small-6 column">
+          <label>Fuel Web Port
+            <input type="text" placeholder="8443" name="web_port" pattern="number" />
+          </label>
+        </div>
+      </div>
       </div>
       <div class="row">
-        <fieldset class="large-4 columns fieldset">
-          <legend>Customer's Entitlement Package:</legend>
-          <input type="radio" name="entitlement" value="1" id="r_1" required><label for="r_1">1: 8 x 5</label>
-          <input type="radio" name="entitlement" value="2" id="r_2" required><label for="r_2">2: 24 x 7</label>
-          <input type="radio" name="entitlement" value="3" id="r_3" required><label for="r_3">3: Proactive</label>
-        </fieldset>
-        <fieldset class="large-7 columns fieldset">
-          <legend>Select OSTF Tests, if any</legend>
-          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Sanity Tests</label>
-          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Functional Tests</label>
-          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">HA Tests</label>
-          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Platform Tests</label></br>
-          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Cloud Validation Tests</label>
-          <input id="ostf" name="ostf" type="checkbox" /><label for="ostf">Configuration Tests</label>
+        <fieldset class="large-6 columns fieldset">
+          <legend>OSTF Tests</legend>
+          <input id="ostf_sanity" name="ostf_sanity" type="checkbox" /><label for="ostf_sanity">Sanity Tests</label>
+          <input id="ostf_functional" name="ostf_functional" type="checkbox" /><label for="ostf_functional">Functional Tests</label>
+          <input id="ostf_ha" name="ostf_ha" type="checkbox" /><label for="ostf_ha">HA Tests</label>
+          <input id="ostf_platform" name="ostf_platform" type="checkbox" /><label for="ostf_platform">Platform Tests</label><br>
+          <input id="ostf_cloud" name="ostf_cloud" type="checkbox" /><label for="ostf_cloud">Cloud Validation Tests</label>
+          <input id="ostf_configuration" name="ostf_configuration" type="checkbox" /><label for="ostf_configuration">Configuration Tests</label>
         </fieldset>
       </div>
 
-
-
+      <div class="reveal" id="modal" data-reveal data-close-on-click="true" data-animation-in="spin-in" data-animation-out="spin-out">
+        <h1>loading</h1>
+        <button class="close-button" data-close aria-label="Close reveal" type="button">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
       <div class="row">
         <div class="small-12 column">
-          <input type="submit" value="Build Runbook" class="button" />
+          <input id="submit" type="submit" value="Build Runbook" class="button" />
         </div>
       </div>
     </form>
