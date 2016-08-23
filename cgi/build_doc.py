@@ -38,7 +38,7 @@ parser.add_argument('-cm', '--customer-manager', action='store', dest='customer_
 parser.add_argument('-de', '--deployment-engineer', action='store', dest='deployment_engineer', type=str, help='Engineer\'s name generating the report')
 parser.add_argument('-fn', '--filename', action='store', dest='filename', type=str, help='Output filename')
 parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
-parser.add_argument('-o','--ostf',action="store_true",dest="ostf")
+# parser.add_argument('-o','--ostf',action="store_true",dest="ostf")
 parser.add_argument('-t','--test',action="append",dest="tests")
 args = parser.parse_args()
 
@@ -390,16 +390,17 @@ def docx_replace(old_file,new_file,rep):
 
 # Generate 'Nodes' table
 def gen_nodes_table(cluster_id):
-    if '7.0' in version:
-       row_count = len(nodedata)
-    else:
-       row_count = len(nodedata)-1
+
+    nodes = []
     col_count = 6
+    for node in nodedata:
+        if node['cluster'] is cluster_id:
+            nodes.append(node)
 
     heading = runbook.add_heading('Nodes',level=1)
     heading.alignment = 1
 
-    table = runbook.add_table(row_count, col_count)
+    table = runbook.add_table(len(nodes)+1, col_count)
     table.style = runbook.styles['Light Grid Accent 1']
 
     hdr_cells = table.rows[0].cells
@@ -410,16 +411,14 @@ def gen_nodes_table(cluster_id):
     hdr_cells[4].text = 'RAM'
     hdr_cells[5].text = 'HDD'
 
-    for nodeCounter, node in enumerate(nodedata):
-        if node['cluster'] is not cluster_id:
-            break
-        nodeRow = table.rows[nodeCounter+1].cells
-        nodeRow[0].text = nodedata[nodeCounter]['hostname']
-        nodeRow[1].text = [(x+', ' if x in nodedata[nodeCounter]['roles'][:-1] else x) for x in nodedata[nodeCounter]['roles']]
-        nodeRow[2].text = nodedata[nodeCounter]['ip']
-        nodeRow[3].text = str(nodedata[nodeCounter]['meta']['cpu']['total']) + ' x ' + str(nodedata[nodeCounter]['meta']['cpu']['spec'][0]['model']) # Total or real?
-        nodeRow[4].text = str(int(nodedata[nodeCounter]['meta']['memory']['total']/1048576)) + ' MB'
-        nodeRow[5].text = [str(x['name']) + ': ' + str(int(x['size']/1073741824)) + 'GB     ' for x in nodedata[nodeCounter]['meta']['disks']]
+    for nodeCounter, node in enumerate(nodes,1):
+        nodeRow = table.rows[nodeCounter].cells
+        nodeRow[0].text = node['hostname']
+        nodeRow[1].text = [(x+', ' if x in node['roles'][:-1] else x) for x in node['roles']]
+        nodeRow[2].text = node['ip']
+        nodeRow[3].text = str(node['meta']['cpu']['total']) + ' x ' + str(node['meta']['cpu']['spec'][0]['model']) # Total or real?
+        nodeRow[4].text = str(int(node['meta']['memory']['total']/1048576)) + ' MB'
+        nodeRow[5].text = [str(x['name']) + ': ' + str(int(x['size']/1073741824)) + 'GB     ' for x in node['meta']['disks']]
 
 def get_network_layout():
     networks = []
@@ -689,7 +688,7 @@ version = get_version(token)
 print('Fuel Version:',version)
 
 print("Gathering cluster data...")
-clusters = get_clusters(token)
+clusters = get_clusters(token) 
 print("Gathering node data...")
 nodedata = get_nodes(token)
 
@@ -699,7 +698,7 @@ for cluster in clusters:
     start_ostf(token,cluster['id'],args.horizon_password,args.horizon_username)
 
 # Init Selenium + chromedriver
-driver = webdriver.Chrome()
+driver = webdriver.Chrome(service_args=["--verbose", "--log-path=chromedriver.log"])
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
 

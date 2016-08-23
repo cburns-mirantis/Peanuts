@@ -15,21 +15,52 @@
         <img alt="logo" class="small-2 column" src="resources/logo.png" />
       </div>
       <div class="row">
-        <fieldset class="large-6 columns fieldset">
-          <legend>Customer's Entitlement Package:</legend>
-          <input type="radio" name="entitlement" value="1" id="r_1" required><label for="r_1">1: 8 x 5</label>
-          <input type="radio" name="entitlement" value="2" id="r_2" required><label for="r_2">2: 24 x 7</label>
-          <input type="radio" name="entitlement" value="3" id="r_3" required><label for="r_3">3: Proactive</label>
+        <fieldset class="small-4 columns fieldset">
+          <legend class="is-invalid-label">Customer's Entitlement Package:</legend>
+          <input type="radio" name="entitlement" value="1" id="r_1" required><label class="is-invalid-label" for="r_1">1: 8 x 5</label>
+          <input type="radio" name="entitlement" value="2" id="r_2" required><label class="is-invalid-label" for="r_2">2: 24 x 7</label>
+          <input type="radio" name="entitlement" value="3" id="r_3" required><label class="is-invalid-label" for="r_3">3: Proactive</label>
         </fieldset>
       </div>
-
-
       <div class="row">
         <div class="small-6 column">
-          <label>Fuel Address
-            <input type="text" placeholder="http://10.20.0.2" name="address" required pattern="url" value="https://"/>
+          <label class="is-invalid-label">Fuel Address
+            <input class="is-invalid-input" type="text" placeholder="http://10.20.0.2" name="address" required pattern="url" value="https://"/>
           </label>
           <p class="help-text">Url or IP address</p>
+        </div>
+        <div class="small-6 column">
+          <label class="is-invalid-label">Type of environment
+            <input class="is-invalid-input" type="text" placeholder="Staging" name="environment_type" required/>
+          </label>
+          <p class="help-text">Staging, Production, etc.</p>
+        </div>
+
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label class="is-invalid-label">Environment ID
+            <input class="is-invalid-input" type="text" placeholder="Some Customer" name="environment_id" required pattern="number"/>
+          </label>
+        </div>
+        <div class="small-6 column">
+          <label class="is-invalid-label">Customer Name
+            <input class="is-invalid-input" type="text" placeholder="Some Customer" name="customer_name" required/>
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="small-6 column">
+          <label class="is-invalid-label">Deployment Engineer
+            <input class="is-invalid-input" type="text" placeholder="Some Engineer, sengineer@mirantis.com" name="deployment_engineer" required/>
+          </label>
+          <p class="help-text">Name and Email</p>
+        </div>
+        <div class="small-6 column">
+          <label id="cs_label">Customer Success Manager
+            <input type="text" placeholder="Some Person, sperson@mirantis.com" name="customer_manager" id="customer_manager"/>
+          </label>
+          <p class="help-text">Name and Email</p>
         </div>
       </div>
       <div class="row">
@@ -56,32 +87,7 @@
           </label>
         </div>
       </div>
-      <div class="row">
-        <div class="small-6 column">
-          <label>Customer Name
-            <input type="text" placeholder="Some Customer" name="customer_name" required/>
-          </label>
-        </div>
-        <div class="small-6 column">
-          <label>Environment ID
-            <input type="text" placeholder="Some Customer" name="customer_name" required pattern="number"/>
-          </label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="small-6 column">
-          <label>Deployment Engineer
-            <input type="text" placeholder="Some Engineer, sengineer@mirantis.com" name="deployment_engineer" required/>
-          </label>
-          <p class="help-text">Name and Email</p>
-        </div>
-        <div class="small-6 column">
-          <label>Type of environment
-            <input type="text" placeholder="Staging" name="environment_type" required/>
-          </label>
-          <p class="help-text">Staging, Production, etc.</p>
-        </div>
-      </div>
+
       <div class="row">
         <div class="small-6 column">
           <label>Horizon Username
@@ -96,17 +102,9 @@
       </div>
       <div class="row">
         <div class="small-6 column">
-          <label> Timezone
+          <label>Support Timezone
             <input type="text" placeholder="America/Central" name="timezone" value="America/Central"/>
           </label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="small-6 column">
-          <label id="cs_label">Customer Success Manager
-            <input type="text" placeholder="Some Person, sperson@mirantis.com" name="customer_manager" id="customer_manager"/>
-          </label>
-          <p class="help-text">Name and Email</p>
         </div>
         <div class="small-6 column">
           <label>Fuel Web Port
@@ -114,32 +112,49 @@
           </label>
         </div>
       </div>
-      </div>
       <div class="row">
-        <fieldset class="large-6 columns fieldset">
+        <fieldset class="small-9 columns fieldset">
           <legend>OSTF Tests</legend>
           <input id="ostf_sanity" name="ostf_sanity" type="checkbox" /><label for="ostf_sanity">Sanity Tests</label>
           <input id="ostf_functional" name="ostf_functional" type="checkbox" /><label for="ostf_functional">Functional Tests</label>
           <input id="ostf_ha" name="ostf_ha" type="checkbox" /><label for="ostf_ha">HA Tests</label>
-          <input id="ostf_platform" name="ostf_platform" type="checkbox" /><label for="ostf_platform">Platform Tests</label><br>
+          <input id="ostf_platform" name="ostf_platform" type="checkbox" /><label for="ostf_platform">Platform Tests</label>
           <input id="ostf_cloud" name="ostf_cloud" type="checkbox" /><label for="ostf_cloud">Cloud Validation Tests</label>
           <input id="ostf_configuration" name="ostf_configuration" type="checkbox" /><label for="ostf_configuration">Configuration Tests</label>
         </fieldset>
       </div>
-
-      <div class="reveal" id="modal" data-reveal data-close-on-click="true" data-animation-in="spin-in" data-animation-out="spin-out">
-        <h1>loading</h1>
-        <button class="close-button" data-close aria-label="Close reveal" type="button">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
       <div class="row">
         <div class="small-12 column">
-          <input id="submit" type="submit" value="Build Runbook" class="button" />
+          <input id="submit" type="submit" value="Build Runbook" class="button expanded" />
         </div>
       </div>
     </form>
 
+    <div class="reveal" id="loading_modal" data-reveal data-close-on-click="true" data-animation-in="scale-in-down" data-animation-out="scale-out-down">
+      <div id="loading_modal_content">
+        <h1 style="margin-left: 15px;">Building Runbook...</h1>
+        <img style="width: 550px;" alt="loading bar" class="" src="resources/loading.gif" />
+      </div>
+      <button class="close-button" data-close aria-label="Close reveal" type="button">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div class="reveal" id="complete_modal" data-reveal data-close-on-click="true" data-animation-in="scale-in-down" data-animation-out="scale-out-down">
+      <div id="complete_modal_content">
+      </div>
+      <button class="close-button" data-close aria-label="Close reveal" type="button">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div class="reveal" id="error_modal" data-reveal data-close-on-click="true" data-animation-in="scale-in-down" data-animation-out="scale-out-down">
+      <div id="error_modal_content">
+        <h1 style="margin-left: 15px;">Error</h1>
+        <p>There was a problem creating the runbook.</p>
+      </div>
+      <button class="close-button" data-close aria-label="Close reveal" type="button">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
     <script src="resources/jquery.js"></script>
     <script src="resources/what-input.js"></script>
     <script src="resources/foundation.js"></script>

@@ -42,14 +42,21 @@ The 'docs' directory will fill up with individual pages that can be merged.
 
 ## Mac os
 
-1. Install python3 and chromedriver
-  brew install python3 chromedriver
-2. Install xcode
-  xcode-select --install
-3. Install python dependencies
-  pip3 install python-docx selenium
-4. Install Chrome
-  https://www.google.com/chrome/browser/desktop/
+brew install python3
+pip3 install requests
+pip3 install paramiko
+pip3 install pillow
+xcode-select --install
+pip3 install python-docx
+pip3 install nwdiag
+pip3 install selenium
+wget "http://chromedriver.storage.googleapis.com/$(curl -s "http://chromedriver.storage.googleapis.com/LATEST_RELEASE")/chromedriver_mac64.zip"
+unzip chromedriver_mac64.zip
+sudo cp chromedriver /usr/local/bin/
+wget https://dl.google.com/chrome/mac/stable/GGRO/googlechrome.dmg
+sudo hdiutil attach googlechrome.dmg
+sudo cp -R /Volumes/Google\ Chrome/Google\ Chrome.app /Applications
+sudo hdiutil unmount /Volumes/Google\ Chrome/
 
 ## Windows
 

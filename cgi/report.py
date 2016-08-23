@@ -1,8 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.5
 # -*- coding: UTF-8 -*-
-import cgi,cgitb,os,subprocess
+import cgi,cgitb,os,time,subprocess
+from subprocess import Popen, PIPE
 cgitb.enable()
 print('Content-Type: text/html;charset=utf-8')
+from subprocess import STDOUT, check_output
+
+
 print()
 form = cgi.FieldStorage()
 
@@ -63,31 +67,67 @@ if form.getvalue('ostf_cloud'):
 if form.getvalue('ostf_configuration'):
     checks.append('configuration')
 
-command = '/vagrant/build_doc.py'
-
-command += ' -f \'' + address
-command += '\' -wp \'' + web_port
-command += '\' -u \'' + web_user
-command += '\' -p \'' + web_pass
-command += '\' -su \'' + ssh_user
-command += '\' -sp \'' + ssh_pass
-command += '\'' + ' -cn \'' + customer_name
-command += '\'' + ' -tz \'' + timezone
-command += '\'' + ' -e \'' + entitlement
-command += '\'' + ' -et \'' + environment_type
-command += '\'' + ' -hp \'' + horizon_pass
-command += '\'' + ' -hu \'' + horizon_user
-command += '\'' + ' -de \'' + deployment_engineer + '\''
+# command = []
+# command.append('cd /var/www/html/cgi/;./build_doc.py')
+# command.append('-f \'' + address + '\'')
+# command.append('-wp \'' + web_port + '\'')
+# command.append('-u \'' + web_user + '\'')
+# command.append('-p \'' + web_pass + '\'')
+# command.append('-su \'' + ssh_user + '\'')
+# command.append('-sp \'' + ssh_pass + '\'')
+# command.append('-cn \'' + customer_name + '\'')
+# command.append('-tz \'' + timezone + '\'')
+# command.append('-e \'' + entitlement + '\'')
+# command.append('-et \'' + environment_type + '\'')
+# command.append('-hp \'' + horizon_pass + '\'')
+# command.append('-hu \'' + horizon_user + '\'')
+# if customer_manager:
+#     command.append('-cm \'' + customer_manager + '\'')
+# command.append('-de \'' + deployment_engineer + '\'')
+# for c in checks:
+#     command.append('-t \'' + c + '\'')
+command = 'cd /var/www/html/cgi/;DISPLAY=:1 ./build_doc.py'
+command += ' -f \'' + address + '\''
+command += ' -wp \'' + web_port + '\''
+command += ' -u \'' + web_user + '\''
+command += ' -p \'' + web_pass + '\''
+command += ' -su \'' + ssh_user + '\''
+command += ' -sp \'' + ssh_pass + '\''
+command += ' -cn \'' + customer_name + '\''
+command += ' -tz \'' + timezone + '\''
+command += ' -e \'' + entitlement + '\''
+command += ' -et \'' + environment_type + '\''
+command += ' -hp \'' + horizon_pass + '\''
+command += ' -hu \'' + horizon_user + '\''
 if customer_manager:
-    command += '\'' + ' -cm \'' + customer_manager
-    
+    command += ' -cm \'' + customer_manager + '\''
+command += ' -de \'' + deployment_engineer + '\''
 for c in checks:
     command += ' -t \'' + c + '\''
+time.sleep(5)
+# print (command)
+proc = subprocess.Popen(command,stdout=PIPE,shell=True)
+print(proc.stdout.readlines())
+# output = check_output(command, stderr=STDOUT, timeout=99999,shell=True)
 
-print(command)
+# print(output)
+
+# time.sleep(5)
+# print(command)
 # # try:
 # #     print(os.system(command))
 # # except:
 # #     pass
-# print(subprocess.call('pwd'))
+# subprocess.run('pwd')
 # print(os.system('whoami'))
+
+# output = subprocess.run(command, stdout=subprocess.PIPE,shell=True)
+#
+# print(output.stdout)
+# print(output.stderr)
+# print(output.returncode)
+# print(dir(output))
+
+# process = Popen(command, stdout=PIPE, stderr=PIPE)
+# stdout, stderr = process.communicate()
+# print(stdout)

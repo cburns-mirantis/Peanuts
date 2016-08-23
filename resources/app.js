@@ -2,12 +2,15 @@ $(document).foundation()
 $("#r_1").change(function() {
     if(this.checked) {
       $("#customer_manager").prop("required",false)
+      $("#customer_manager").removeClass('is-invalid-input')
+      $("#cs_label").removeClass('is-invalid-label')
     }
 });
 $("#r_2").change(function() {
     if(this.checked) {
       $("#customer_manager").prop("required",false)
-
+      $("#customer_manager").removeClass('is-invalid-input')
+      $("#cs_label").removeClass('is-invalid-label')
     }
 });
 $("#r_3").change(function() {
@@ -18,16 +21,16 @@ $("#r_3").change(function() {
     }
 });
 $(document)
-  // form validation passed, form will submit if submit event not returned false
-  // .on("formvalid.zf.abide", function(ev,frm) {
-  //   console.log("Form id "+frm.attr('id')+" is valid");
-  //   // ajax post form
-  // })
   .on("submit", function(ev) {
     ev.preventDefault();
+    var loading_modal = new Foundation.Reveal($('#loading_modal'));
+    var complete_modal = new Foundation.Reveal($('#complete_modal'));
+    var error_modal = new Foundation.Reveal($('#error_modal')); 
+    loading_modal.open();
     $.post("cgi/report.py", $("#form").serialize(), function(data) {
         console.log(data);
+        $("#complete_modal_content").replaceWith(data);
+        loading_modal.close();
+        complete_modal.open();
     });
-    var popup = new Foundation.Reveal($('#modal'));
-    popup.open();
   });
