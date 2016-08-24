@@ -688,7 +688,7 @@ version = get_version(token)
 print('Fuel Version:',version)
 
 print("Gathering cluster data...")
-clusters = get_clusters(token) 
+clusters = get_clusters(token)
 print("Gathering node data...")
 nodedata = get_nodes(token)
 
@@ -698,7 +698,7 @@ for cluster in clusters:
     start_ostf(token,cluster['id'],args.horizon_password,args.horizon_username)
 
 # Init Selenium + chromedriver
-driver = webdriver.Chrome(service_args=["--verbose", "--log-path=chromedriver.log"])
+driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
 driver.get('https://' + args.host + ':' + args.web_port)
 
@@ -727,7 +727,7 @@ replaces = {
 "DATE": time.strftime('%d %B, %Y'),
 "AUTHORS": args.deployment_engineer
 }
-print(replaces)
+
 docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
@@ -866,8 +866,7 @@ p = last._element
 p.getparent().remove(p)
 p._p = p._element = None
 
-print("Saving runbook as 'Runbook for " + args.customer_name + ".docx'")
-runbook.save('Runbook for ' + args.customer_name + '.docx')
+runbook.save(args.filename)
 
 # Cleanup
 shutil.rmtree('screens/')
