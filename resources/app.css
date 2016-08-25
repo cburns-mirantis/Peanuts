@@ -1,0 +1,26 @@
+.box {
+  margin-left: 15px;
+}
+.content {
+  border-radius: 5px;
+  margin: 0 3rem 1rem 3rem;
+  background: #F2F6F9;
+}
+.header {
+  background: #222222;
+  color: white;
+}
+.background {
+  background: #222222;
+}
+.button {
+  background-color: #d3301a;
+  border-radius: 10px;
+}
+hr {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+legend {
+  background: none !important; 
+}

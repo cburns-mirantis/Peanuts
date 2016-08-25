@@ -3,26 +3,16 @@
 import cgi,cgitb,os,time,subprocess
 from subprocess import Popen, PIPE
 cgitb.enable()
-print('Content-Type: text/html;charset=utf-8')
 from subprocess import STDOUT, check_output
-
-
-print()
 form = cgi.FieldStorage()
 
-print('')
-
-address = form.getvalue('address').replace('https://','')
+address = form.getvalue('fuel_address')
 customer_name = form.getvalue('customer_name')
 deployment_engineer = form.getvalue('deployment_engineer')
 environment_type = form.getvalue('environment_type')
+environment_id = form.getvalue('environment_id')
 entitlement = form.getvalue('entitlement')
 customer_manager = form.getvalue('customer_manager')
-
-if form.getvalue('web_port'):
-    web_port = form.getvalue('web_port')
-else:
-    web_port = '8443'
 
 if form.getvalue('web_user'):
     web_user = form.getvalue('web_user')
@@ -52,10 +42,10 @@ if form.getvalue('timezone'):
     timezone = form.getvalue('timezone')
 else:
     timezone = 'America/Central'
-# if form.getvalue('timezone'):
-#     timezone = form.getvalue('timezone')
-# else:
-#     timezone = 'America/Central'
+if form.getvalue('fuel_port'):
+    fuel_port = form.getvalue('fuel_port')
+else:
+    fuel_port = '22'
 
 checks = []
 if form.getvalue('ostf_sanity'):
@@ -71,26 +61,44 @@ if form.getvalue('ostf_cloud'):
 if form.getvalue('ostf_configuration'):
     checks.append('configuration')
 
-command = 'cd /var/www/html/cgi/;DISPLAY=:1 ./build_doc.py'
-command += ' -f \'' + address + '\''
-command += ' -fn \'' + '/var/www/html/runbooks/test.docx' + '\''
-command += ' -wp \'' + web_port + '\''
-command += ' -u \'' + web_user + '\''
-command += ' -p \'' + web_pass + '\''
-command += ' -su \'' + ssh_user + '\''
-command += ' -sp \'' + ssh_pass + '\''
-command += ' -cn \'' + customer_name + '\''
-command += ' -tz \'' + timezone + '\''
-command += ' -e \'' + entitlement + '\''
-command += ' -et \'' + environment_type + '\''
-command += ' -hp \'' + horizon_pass + '\''
-command += ' -hu \'' + horizon_user + '\''
-if customer_manager:
-    command += ' -cm \'' + customer_manager + '\''
-command += ' -de \'' + deployment_engineer + '\''
-for c in checks:
-    command += ' -t \'' + c + '\''
+filename = 'Runbook-%d.docx' % int(time.time())
 
-proc = subprocess.Popen(command,stdout=PIPE,shell=True)
-print('<h1>Runbook Build Complete</h1>')
-print('<a href=\"http://' + os.environ['SERVER_NAME'] + '/runbooks/test.docx\" class=\"button expanded large\">Download</a>')
+command = 'cd /var/www/html/cgi/;DISPLAY=:1 ./build_doc.py'
+command += ' --fuel-address \'' + address + '\''
+command += ' --fuel-port \'' + fuel_port + '\''
+command += ' --environment \'' + environment_id + '\''
+command += ' --filename \'' + '/var/www/html/runbooks/' + filename + '\''
+command += ' --web-user \'' + web_user + '\''
+command += ' --web-pw \'' + web_pass + '\''
+command += ' --ssh-user \'' + ssh_user + '\''
+command += ' --ssh-pw \'' + ssh_pass + '\''
+command += ' --customer-name \'' + customer_name + '\''
+command += ' --time-zone \'' + timezone + '\''
+command += ' --entitlement \'' + entitlement + '\''
+command += ' --environment-type \'' + environment_type + '\''
+command += ' --horizon-pw \'' + horizon_pass + '\''
+command += ' --horizon-user \'' + horizon_user + '\''
+if customer_manager:
+    command += ' --customer-manager \'' + customer_manager + '\''
+command += ' --deployment-engineer \'' + deployment_engineer + '\''
+for c in checks:
+    command += ' --test \'' + c + '\''
+
+# proc = subprocess.Popen(command,stdout=PIPE,shell=True)
+# stdout = proc.communicate()[0]
+
+
+if proc.returncode is 0:
+    print('Status: 200\nContent-type: text/html\n')
+    print('<h1>Runbook Build Complete</h1>')
+    print('<a href=\"http://' + os.environ['SERVER_NAME'] + '/runbooks/' + filename + '\" class=\"button expanded large\">Download</a>')
+elif proc.returncode is 1:
+    print('Status: 500\nContent-type: text/html\n')
+    print('<h1>Error</h1>')
+    print(command)
+elif proc.returncode is 2:
+    print('Status: 500\nContent-type: text/html\n')
+    print('<h1>Fuel Error</h1>')
+else:
+    print('Status: 500\nContent-type: text/html\n')
+    print('<h1>Fuel Error</h1>')

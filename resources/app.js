@@ -20,17 +20,25 @@ $("#r_3").change(function() {
       $("#cs_label").addClass('is-invalid-label')
     }
 });
+// $('#fuel_address').bind('keypress keyup blur', function() {
+//     $('#web_address').val($(this).val());
+//     $('#ssh_address').val($(this).val().replace("https://",""));
+//     $('#ostf_address').val($(this).val());
+// });
 $(document)
   .on("submit", function(ev) {
     ev.preventDefault();
     var loading_modal = new Foundation.Reveal($('#loading_modal'));
     var complete_modal = new Foundation.Reveal($('#complete_modal'));
-    var error_modal = new Foundation.Reveal($('#error_modal')); 
+    var error_modal = new Foundation.Reveal($('#error_modal'));
     loading_modal.open();
     $.post("cgi/report.py", $("#form").serialize(), function(data) {
-        console.log(data);
-        $("#complete_modal_content").replaceWith(data);
-        loading_modal.close();
-        complete_modal.open();
+      $("#complete_modal_content").replaceWith(data);
+      loading_modal.close();
+      complete_modal.open();
+    }).fail(function(response){
+      loading_modal.close();
+      error_modal.open()
+      $("#error_modal_content").replaceWith(response.responseText);
     });
   });

@@ -20,26 +20,24 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 
 # Handle Arguments
-parser = argparse.ArgumentParser(description='Gather Fuel Screenshots and generate a runbook for delivery to customer.')
-parser.add_argument('-u', '--web-user', action='store', dest='web_username', type=str, help='Fuel Web Username',default='admin')
-parser.add_argument('-p', '--web-pw', action='store', dest='web_password', type=str, help='Fuel Web Password',default='admin')
-parser.add_argument('-hu', '--horizon-user', action='store', dest='horizon_username', type=str, help='Horizon Username',default='admin')
-parser.add_argument('-hp', '--horizon-pw', action='store', dest='horizon_password', type=str, help='Horizon Password',default='admin')
-parser.add_argument('-wp', '--web-port', action='store', dest='web_port', type=str, help='Fuel Web Port',default='8443')
-parser.add_argument('-su', '--ssh-user', action='store', dest='ssh_username', type=str, help='Fuel SSH Username',default='root')
-parser.add_argument('-sp', '--ssh-pw', action='store', dest='ssh_password', type=str, help='Fuel SSH Password',default='r00tme')
-parser.add_argument('-env', '--environment', action='store', dest='environment', type=str, help='Environment to run the runbook against')
-parser.add_argument('-of', '--output-file', action='store', dest='output_file', type=str, help='Filename to save file as')
-parser.add_argument('-cn', '--customer-name', action='store', dest='customer_name', type=str, help='Customer\'s name')
-parser.add_argument('-tz', '--time-zone', action='store', dest='timezone', type=str, help='Timezone for support')
-parser.add_argument('-e', '--entitlement', action='store', dest='entitlement', type=str, help='Customer\'s Support Entitlement')
-parser.add_argument('-et', '--environment-type', action='store', dest='environment_type', type=str, help='Production, Staging, etc.')
-parser.add_argument('-cm', '--customer-manager', action='store', dest='customer_manager', type=str, help='Customer Manager for Proactive Entitlements')
-parser.add_argument('-de', '--deployment-engineer', action='store', dest='deployment_engineer', type=str, help='Engineer\'s name generating the report')
-parser.add_argument('-fn', '--filename', action='store', dest='filename', type=str, help='Output filename')
-parser.add_argument('-f', '--fuel', action='store', dest='host', type=str, help='Fuel FQDN or IP Ex. 10.20.0.2',required=True)
-# parser.add_argument('-o','--ostf',action="store_true",dest="ostf")
-parser.add_argument('-t','--test',action="append",dest="tests")
+parser = argparse.ArgumentParser()
+parser.add_argument('--web-user', action='store', dest='web_username', type=str)
+parser.add_argument('--web-pw', action='store', dest='web_password', type=str)
+parser.add_argument('--horizon-user', action='store', dest='horizon_username', type=str)
+parser.add_argument('--horizon-pw', action='store', dest='horizon_password', type=str)
+parser.add_argument('--fuel-port', action='store', dest='ssh_port', type=str)
+parser.add_argument('--ssh-user', action='store', dest='ssh_username', type=str)
+parser.add_argument('--ssh-pw', action='store', dest='ssh_password', type=str)
+parser.add_argument('--environment', action='store', dest='environment', type=str)
+parser.add_argument('--customer-name', action='store', dest='customer_name', type=str)
+parser.add_argument('--time-zone', action='store', dest='timezone', type=str)
+parser.add_argument('--entitlement', action='store', dest='entitlement', type=str)
+parser.add_argument('--environment-type', action='store', dest='environment_type', type=str)
+parser.add_argument('--customer-manager', action='store', dest='customer_manager', type=str)
+parser.add_argument('--deployment-engineer', action='store', dest='deployment_engineer', type=str)
+parser.add_argument('--filename', action='store', dest='filename', type=str)
+parser.add_argument('--fuel-address', action='store', dest='host', type=str)
+parser.add_argument('--test',action="append",dest="tests")
 args = parser.parse_args()
 
 # Get token from Keystone
@@ -47,40 +45,43 @@ def get_token():
     header = {'Content-Type': 'application/json', 'accept': 'application/json'}
     creds = {'auth': {'tenantName': args.web_username,'passwordCredentials': {'username': args.web_username,'password': args.web_password}}}
     try:
-        r = requests.post(url='https://' + args.host + ':' + args.web_port + '/keystone/v2.0/tokens',headers=header,verify=False,json=creds,timeout=15)
+        r = requests.post(url='https://' + args.host + ':' + '8443' + '/keystone/v2.0/tokens',headers=header,verify=False,json=creds,timeout=15)
     except:
         sys.exit('Request timed out. Check Fuel web address and port.')
     if r.status_code is not 200:
         sys.exit('Check Fuel username & password')
-    print('Successful auth.')
     return json.loads(r.text)['access']['token']['id']
 
 def get_nodes(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return sorted(json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
+    return sorted(json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
 
-def get_clusters(token):
+def get_cluster(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters',headers=header, verify=False).text)
+    cluster = json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/clusters/' + cluster_id,headers=header, verify=False).text)
+    print(cluster['status'])
+    if cluster['status'] is not 'operational':
+        sys.exit(1)
+    return cluster
 
 def get_version(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/version',headers=header, verify=False).text)['release']
+    return json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/version',headers=header, verify=False).text)['release']
 
 def get_network(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='https://' + args.host + ':' + args.web_port + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
+    return json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
 
 def get_test_result(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='http://' + args.host + ':8777' + '/v1/testruns/last/' + str(cluster_id), headers=header, verify=False).text)
+    return json.loads(requests.get(url='http://' + args.host + ':' + '8777' + '/v1/testruns/last/' + str(cluster_id), headers=header, verify=False).text)
 
 def start_ostf(token,cluster_id,username,password):
-    print("Starting OSTF for environment %d ..." % cluster_id)
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    tests =  [
-        {
-            "testset": "sanity",
+    tests = []
+    for t in args.tests:
+        tests.append({
+            "testset": t,
             "tests": [],
             "metadata": {
                 "cluster_id": cluster_id,
@@ -90,72 +91,11 @@ def start_ostf(token,cluster_id,username,password):
                         "ostf_os_tenant_name": username
                 }
             }
-        },
-        {
-            "testset": "smoke",
-            "tests": [],
-            "metadata": {
-                "cluster_id": cluster_id,
-                "ostf_os_access_creds": {
-                        "ostf_os_username": username,
-                        "ostf_os_password": password,
-                        "ostf_os_tenant_name": username
-                }
-            }
-        },
-        {
-            "testset": "ha",
-            "tests": [],
-            "metadata": {
-                "cluster_id": cluster_id,
-                "ostf_os_access_creds": {
-                        "ostf_os_username": username,
-                        "ostf_os_password": password,
-                        "ostf_os_tenant_name": username
-                }
-            }
-        },
-        {
-            "testset": "tests_platform",
-            "tests": [],
-            "metadata": {
-                "cluster_id": cluster_id,
-                "ostf_os_access_creds": {
-                        "ostf_os_username": username,
-                        "ostf_os_password": password,
-                        "ostf_os_tenant_name": username
-                }
-            }
-        },
-        {
-            "testset": "cloudvalidation",
-            "tests": [],
-            "metadata": {
-                "cluster_id": cluster_id,
-                "ostf_os_access_creds": {
-                        "ostf_os_username": username,
-                        "ostf_os_password": password,
-                        "ostf_os_tenant_name": username
-                }
-        }
-    },
-        {
-            "testset": "configuration",
-            "tests": [],
-            "metadata": {
-                "cluster_id": cluster_id,
-                "ostf_os_access_creds": {
-                        "ostf_os_username": username,
-                        "ostf_os_password": password,
-                        "ostf_os_tenant_name": username
-                }
-            }
-        }
-    ]
-    r = requests.post(url='http://' + args.host + ':8777' + '/v1/testruns/',headers=header,verify=False,json=tests,timeout=15)
+        })
+
+    r = requests.post(url='http://' + args.host + ':' + '8777' + '/v1/testruns/',headers=header,verify=False,json=tests,timeout=15)
     if r.status_code is not 200:
         sys.exit('Unable to start OSTF')
-    print('Started OSTF.')
 
 def wait_and_collect_ostf(token,cluster_id):
     while True:
@@ -165,10 +105,8 @@ def wait_and_collect_ostf(token,cluster_id):
             if 'finished' in r['status']:
                 tests_completed += 1
         if tests_completed == 6:
-            print("OSTF completed for environment",cluster_id)
             return ostf_results
             break
-        print(str(tests_completed) + "/6 testsets completed, waiting 15 seconds...")
         tests_completed = 0
         time.sleep(15)
 
@@ -203,7 +141,7 @@ def fuel_info():
     ssh = paramiko.SSHClient()
     fuel = {}
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password)
+    ssh.connect(args.host, username=args.ssh_username, password=args.ssh_password,port=int(args.ssh_port))
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('ip route ls | grep ' + args.host + '| awk \'{ print $3 }\'')
 
     fuel['management_iface'] = ssh_stdout.readlines()[0].replace('\n','')
@@ -215,9 +153,9 @@ def fuel_info():
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
     fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
 
-    # fuel['url'] = 'https://' + args.host + ':' + args.web_port
-    fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
-    fuel['web'] = {'username':args.web_username,'password':args.web_password}
+    # fuel['url'] = 'https://' + args.host + ':' + '8443'
+    # fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
+    # fuel['web'] = {'username':args.web_username,'password':args.web_password}
     return fuel
 
 # Generate 'Access Information' table
@@ -237,7 +175,7 @@ def gen_access_table():
 
    line1 = table.rows[1].cells
    line1[0].text = 'Fuel UI Master Node URL'
-   line1[1].text = 'https://' + args.host + ':' + args.web_port
+   line1[1].text = 'https://' + args.host + ':' + '8443'
 
    line2 = table.rows[2].cells
    line2[0].text = 'Fuel UI Credentials'
@@ -266,7 +204,6 @@ def gen_access_table():
 # Handle entitlement table based on Support entitlement level
 def entitlement_handler(entitlement):
     support_services = {}
-    print(entitlement)
     if int(entitlement) is 1:
         support_services =  {
             'ENTITLEMENT':'8 x 5',
@@ -482,7 +419,7 @@ def wait_for_page_tag_class(class_name):
 # Handle webpage screenshots
 def screenshot(page,name,tag,fix=False):
     if fix:
-        driver.get('https://' + args.host + ':' + args.web_port)
+        driver.get('https://' + args.host + ':' + '8443')
         time.sleep(1)
     if page is not None:
         driver.get(page)
@@ -495,23 +432,19 @@ def screenshot(page,name,tag,fix=False):
         passes = math.ceil(total_height / viewport_height)
         for i in range(passes):
             if i == 0:
-                print('Screenshot: ' + name)
                 driver.save_screenshot('screens/' + name + '_0.png')
                 add_picture_page('screens/' + name + '_0.png')
                 continue
             driver.execute_script('window.scrollTo(0, '+ str(i*viewport_height) + ');')
             time.sleep(.2)
-            print('Screenshot: ' + name)
             driver.save_screenshot('screens/' + name + '_' + str(i) + '.png')
             add_picture_page('screens/' + name + '_' + str(i) + '.png')
     elif total_height - viewport_height < 100:
         driver.execute_script('window.scrollTo(0, '+ str(viewport_height) + ');')
         time.sleep(.2)
-        print('Screenshot: ' + name)
         driver.save_screenshot('screens/' + name + '.png')
         add_picture_page('screens/' + name + '.png')
     else:
-        print('Screenshot: ' + name)
         driver.save_screenshot('screens/' + name + '.png')
         add_picture_page('screens/' + name + '.png')
 
@@ -655,13 +588,6 @@ def add_picture_page(filename,page_break=True):
         runbook.add_page_break()
     os.remove(filename)
 
-def count_cluster_nodes(id):
-    count = 0
-    for n in nodedata:
-        if str(id) in str(n['cluster']):
-            count += 1
-    return str(count)
-
 # =========================================
 # INIT
 # =========================================
@@ -681,26 +607,21 @@ if not cmd_exists('chromedriver'):
     sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
 
 # Get token & Node informationfrom Fuel API
-print("Getting Fuel token...")
 token = get_token()
 # Get Fuel version
 version = get_version(token)
-print('Fuel Version:',version)
 
-print("Gathering cluster data...")
-clusters = get_clusters(token)
-print("Gathering node data...")
+cluster = get_cluster(token,args.environment) # check if operational and if it has nodes
+
 nodedata = get_nodes(token)
 
-for cluster in clusters:
-    if 'operational' not in cluster['status']:
-        break
-    start_ostf(token,cluster['id'],args.horizon_password,args.horizon_username)
+if args.tests:
+    start_ostf(token,args.environment,args.horizon_password,args.horizon_username)
 
 # Init Selenium + chromedriver
 driver = webdriver.Chrome()
 driver.set_window_size(1200, 1200)
-driver.get('https://' + args.host + ':' + args.web_port)
+driver.get('https://' + args.host + ':' + '8443')
 
 # Handle Login
 try:
@@ -719,7 +640,6 @@ password.send_keys(Keys.RETURN)
 # =========================================
 
 # Build cover page
-print("Generating cover page...")
 replaces = {
 "CUSTOMER": args.customer_name,
 "ENV": args.environment_type,
@@ -732,131 +652,117 @@ docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
 
-print("Creating Access table...")
 fuel = fuel_info()
 gen_access_table()
 runbook.add_page_break()
 
-print("Creating Support table...")
 gen_support_table()
 runbook.add_page_break()
 
 
 networkdata = []
-for cluster in clusters:
-    if 'operational' not in cluster['status']:
-        break
-    print("Creating Nodes table...")
-    gen_nodes_table(cluster['id'])
-    runbook.add_page_break()
-    networkdata = get_network(token,cluster['id'])
-    print("Creating network table for environment " + cluster['name'] + "...")
-    gen_network_layout_table(get_network_layout(),cluster['name'])
-    runbook.add_page_break()
-    runbook.add_page_break()
+# if 'operational' not in cluster['status']:
+#     break
+gen_nodes_table(args.environment)
+runbook.add_page_break()
+networkdata = get_network(token,args.environment)
+gen_network_layout_table(get_network_layout(),cluster['name'])
+runbook.add_page_break()
+runbook.add_page_break()
 
-    cluster_name = cluster['name'].replace(" ","-")
-    target_node_count = 0
+tree = nwdiag.parser.parse_string(create_network_diagram(token, networkdata['networks'], cluster))
+diagram = ScreenNodeBuilder.build(tree)
+draw = DiagramDraw('PNG', diagram, 'screens/network-layout.png',fontmap=None, antialias=False, nodoctype=True)
+draw.draw()
+draw.save()
+add_picture_page('screens/network-layout.png')
 
-    print("Creating New Network Diagram...")
-    # print(create_network_diagram(token, networkdata['networks'], cluster))
+last = runbook.paragraphs[-1]
+p = last._element
+p.getparent().remove(p)
+p._p = p._element = None
 
-    tree = nwdiag.parser.parse_string(create_network_diagram(token, networkdata['networks'], cluster))
-    diagram = ScreenNodeBuilder.build(tree)
-    draw = DiagramDraw('PNG', diagram, 'screens/network-layout.png',fontmap=None, antialias=False, nodoctype=True)
-    draw.draw()
-    draw.save()
-    add_picture_page('screens/network-layout.png')
-    target_node_count += 1
-
-    last = runbook.paragraphs[-1]
-    p = last._element
-    p.getparent().remove(p)
-    p._p = p._element = None
-    gen_ostf_table(wait_and_collect_ostf(token,cluster['id']),cluster['name'])
-
-
-print("Starting screenshot collection...")
+if args.tests:
+    gen_ostf_table(wait_and_collect_ostf(token,args.environment),cluster['name'])
 
 # Fuel main tabs screenshots
 screenshot(None,'Environments','clusters-page')
 if '7.0' not in version:
-    screenshot('https://' + args.host + ':' + args.web_port + '/#equipment','Equipment','equipment-page')
-screenshot('https://' + args.host + ':' + args.web_port + '/#releases','Releases','releases-page')
-screenshot('https://' + args.host + ':' + args.web_port + '/#plugins','Plugins','plugins-page')
-
-# Environments screenshots
-for e in clusters:
-    if 'operational' not in e['status']:
-        break
-    c = "https://" + args.host + ':' + args.web_port + '/#cluster/'  + str(e['id'])
-    nodes = []
-    for n in nodedata:
-        if n['cluster'] is e['id']:
-            nodes.append(n)
-    # Skip environment if it has no nodes
-    if not nodes:
-        continue
-    for i,n in enumerate(nodes):
-        cluster = str(e['id'])
-        node = str(n['id'])
-        if i == 0:
-            screenshot(c + '/dashboard','Environment: ' + e['name'] + ' Dashboard','cluster-page',True)
-            screenshot(c + '/nodes','Environment: ' + e['name'] + ' Nodes','nodes-tab',True)
-        screenshot(c + '/nodes/disks/nodes:' +node,'Environment: ' + e['name'] + ' Node: ' + n['name'] + ' Disks','edit-node-disks-screen',True )
-        screenshot(c + '/nodes/interfaces/nodes:' +node,'Environment: ' + e['name'] + ' Node: ' + n['name'] + ' Interfaces','ifc-container',True )
-
-    if '7.0' in version:
-        screenshot(c + '/network','Environment: ' + e['name'] + ' Network',None)
-    else:
-        driver.get(c + '/network')
-        wait_for_page_tag_class('network-tab')
-        network_elements = driver.find_elements_by_tag_name('a')
-        for i in range(len(network_elements)):
-            element = network_elements[i]
-            if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
-                element.click()
-                driver.execute_script('window.scrollTo(0,0);')
-                time.sleep(.2)
-                screenshot(None,'Environment: ' + e['name'] + ' Network ' + element.text,None)
-            if 'Other' in element.text:
-                element.click()
-                time.sleep(.2)
-                screenshot(None,'Environment: ' + e['name'] + ' Network Other',None)
-
-    driver.get(c + '/settings')
-    wait_for_page_tag_class('settings-tab')
-    settings_elements = driver.find_elements_by_tag_name('a')
-    for i in range(len(settings_elements)-1):
-        element = settings_elements[i]
-        if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
-            element.click()
-            driver.execute_script('window.scrollTo(0,0);')
-            time.sleep(.2)
-            screenshot(None,'Environment: ' + e['name'] + ' Settings ' + element.text,None)
-        if 'Kernel parameters' in element.text:
-            element.click()
-            time.sleep(.2)
-            screenshot(None,'Environment: ' + e['name'] + ' Settings Kernel Params',None)
-        if 'Repositories' in element.text:
-            element.click()
-            time.sleep(.2)
-            screenshot(None,'Environment: ' + e['name'] + ' Settings Repositories',None)
-        if 'Host OS DNS Servers' in element.text:
-            element.click()
-            time.sleep(.2)
-            screenshot(None,'Environment: ' + e['name'] + ' Settings DNS',None)
-        if 'Host OS NTP Servers' in element.text:
-            element.click()
-            time.sleep(.2)
-            screenshot(None,'Environment: ' + e['name'] + ' Settings NTP',None)
-        if 'Public TLS' in element.text:
-            element.click()
-            time.sleep(.2)
-            screenshot(None,'Environment: ' + e['name'] + ' Settings Public TLS',None)
-    # driver.get(c + '/healthcheck')
-    # wait_for_page_tag_class('healthcheck-controls')
-    # screenshot(None,'Environment: ' + e['name'] + 'Health Check',None)
+    screenshot('https://' + args.host + ':' + '8443' + '/#equipment','Equipment','equipment-page')
+screenshot('https://' + args.host + ':' + '8443' + '/#releases','Releases','releases-page')
+# screenshot('https://' + args.host + ':' + '8443' + '/#plugins','Plugins','plugins-page')
+#
+# # Environments screenshots
+#
+# # if 'operational' not in e['status']:
+# #     break
+# c = "https://" + args.host + ':' + '8443' + '/#cluster/'  + str(cluster['id'])
+# nodes = []
+# for n in nodedata:
+#     if n['cluster'] is cluster['id']:
+#         nodes.append(n)
+#
+#
+# for i,n in enumerate(nodes):
+#     # cluster = str(e['id'])
+#     node = str(n['id'])
+#     if i == 0:
+#         screenshot(c + '/dashboard','Environment: ' + cluster['name'] + ' Dashboard','cluster-page',True)
+#         screenshot(c + '/nodes','Environment: ' + cluster['name'] + ' Nodes','nodes-tab',True)
+#     screenshot(c + '/nodes/disks/nodes:' +node,'Environment: ' + cluster['name'] + ' Node: ' + n['name'] + ' Disks','edit-node-disks-screen',True )
+#     screenshot(c + '/nodes/interfaces/nodes:' +node,'Environment: ' + cluster['name'] + ' Node: ' + n['name'] + ' Interfaces','ifc-container',True )
+#
+# if '7.0' in version:
+#     screenshot(c + '/network','Environment: ' + cluster['name'] + ' Network',None)
+# else:
+#     driver.get(c + '/network')
+#     wait_for_page_tag_class('network-tab')
+#     network_elements = driver.find_elements_by_tag_name('a')
+#     for i in range(len(network_elements)):
+#         element = network_elements[i]
+#         if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
+#             element.click()
+#             driver.execute_script('window.scrollTo(0,0);')
+#             time.sleep(.2)
+#             screenshot(None,'Environment: ' + cluster['name'] + ' Network ' + element.text,None)
+#         if 'Other' in element.text:
+#             element.click()
+#             time.sleep(.2)
+#             screenshot(None,'Environment: ' + cluster['name'] + ' Network Other',None)
+#
+# driver.get(c + '/settings')
+# wait_for_page_tag_class('settings-tab')
+# settings_elements = driver.find_elements_by_tag_name('a')
+# for i in range(len(settings_elements)-1):
+#     element = settings_elements[i]
+#     if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
+#         element.click()
+#         driver.execute_script('window.scrollTo(0,0);')
+#         time.sleep(.2)
+#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings ' + element.text,None)
+#     if 'Kernel parameters' in element.text:
+#         element.click()
+#         time.sleep(.2)
+#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Kernel Params',None)
+#     if 'Repositories' in element.text:
+#         element.click()
+#         time.sleep(.2)
+#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Repositories',None)
+#     if 'Host OS DNS Servers' in element.text:
+#         element.click()
+#         time.sleep(.2)
+#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings DNS',None)
+#     if 'Host OS NTP Servers' in element.text:
+#         element.click()
+#         time.sleep(.2)
+#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings NTP',None)
+#     if 'Public TLS' in element.text:
+#         element.click()
+#         time.sleep(.2)
+#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Public TLS',None)
+# # driver.get(c + '/healthcheck')
+# # wait_for_page_tag_class('healthcheck-controls')
+# # screenshot(None,'Environment: ' + cluster['name'] + 'Health Check',None)
 
 # Close browser session
 driver.close()
