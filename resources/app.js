@@ -20,11 +20,6 @@ $("#r_3").change(function() {
       $("#cs_label").addClass('is-invalid-label')
     }
 });
-// $('#fuel_address').bind('keypress keyup blur', function() {
-//     $('#web_address').val($(this).val());
-//     $('#ssh_address').val($(this).val().replace("https://",""));
-//     $('#ostf_address').val($(this).val());
-// });
 $(document)
   .on("submit", function(ev) {
     ev.preventDefault();
@@ -37,8 +32,8 @@ $(document)
       loading_modal.close();
       complete_modal.open();
     }).fail(function(response){
+      $("#error_modal_content").replaceWith(response.responseText);
       loading_modal.close();
       error_modal.open()
-      $("#error_modal_content").replaceWith(response.responseText);
     });
   });

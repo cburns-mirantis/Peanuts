@@ -84,21 +84,48 @@ command += ' --deployment-engineer \'' + deployment_engineer + '\''
 for c in checks:
     command += ' --test \'' + c + '\''
 
-# proc = subprocess.Popen(command,stdout=PIPE,shell=True)
-# stdout = proc.communicate()[0]
-
+proc = Popen(command,stdout=PIPE,stderr=PIPE,shell=True)
+stdout = proc.communicate()[0]
 
 if proc.returncode is 0:
     print('Status: 200\nContent-type: text/html\n')
     print('<h1>Runbook Build Complete</h1>')
-    print('<a href=\"http://' + os.environ['SERVER_NAME'] + '/runbooks/' + filename + '\" class=\"button expanded large\">Download</a>')
-elif proc.returncode is 1:
+    print('<a href=\"http://' + os.environ['SERVER_NAME'] + '/runbooks/' + filename + '\" class=\"button expanded large\" >Download</a>')
+    # print('<p>The command ran was:</p>')
+    # print('<p>' + proc.args + '</p>')
+elif proc.returncode is 10:
     print('Status: 500\nContent-type: text/html\n')
-    print('<h1>Error</h1>')
-    print(command)
-elif proc.returncode is 2:
+    print('<h1>Incorrect Environment Error</h1><hr>')
+    print('<h3>The environment chosen is not operational or doesn\'t have nodes.</h3>')
+    print('<p>The command ran was:</p>')
+    print('<p>' + proc.args + '</p>')
+elif proc.returncode is 11:
     print('Status: 500\nContent-type: text/html\n')
-    print('<h1>Fuel Error</h1>')
+    print('<h1>Environment Not Found</h1><hr>')
+    print('<h3>The environment chosen was not found.</h3>')
+elif proc.returncode is 12:
+    print('Status: 500\nContent-type: text/html\n')
+    print('<h1>Timed Out Error</h1><hr>')
+    print('<h3>Request Timed out to Fuel API. Check provided address & port.</h3>')
+    print('<p>The command ran was:</p>')
+    print('<p>' + proc.args + '</p>')
+elif proc.returncode is 13:
+    print('Status: 500\nContent-type: text/html\n')
+    print('<h1>Authorization Failed</h1><hr>')
+    print('<h3>Failed to authenticate with the Fuel API. Check provided username & password.</h3>')
+    print('<p>The command ran was:</p>')
+    print('<p>' + proc.args + '</p>')
+elif proc.returncode is 14:
+    print('Status: 500\nContent-type: text/html\n')
+    print('<h1>OSTF Error</h1><hr>')
+    print('<h3>Failed to start the OSTF Tests.</h3>')
+    print('<p>The command ran was:</p>')
+    print('<p>' + proc.args + '</p>')
 else:
     print('Status: 500\nContent-type: text/html\n')
-    print('<h1>Fuel Error</h1>')
+    print('<h1>Unknown Error</h1><hr>')
+    print('<h3>An unknown error occurred.</h3>')
+    print('<p>The command ran was:</p>')
+    print('<p>' + proc.args + '</p>')
+    print('<p>The stdout was:</p>')
+    print(stdout)

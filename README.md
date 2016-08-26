@@ -18,16 +18,16 @@ This vagrant file sets up the dependencies and hosts the web app in an Ubuntu VM
 1. git clone https://github.com/cburns-mirantis/Peanuts
 2. cd Peanuts
 3. vagrant up
-4. There will be a link to the Runbook Builder link like this
+4. There will be a link to the Runbook Builder like this
 
-`==> default: Runbook Builder Address:
-==> default: http://192.168.1.44`
+`==> default: Runbook Builder Address:`
+`==> default: http://192.168.1.44`
 
 5. Goto address and fill out form and click `Build Runbook`
 
 #Adding styles to the document
 
-To add a different style to the template document, you have to open the template.docx in Microsoft Word and add the style to an example item like a table. Then remove the item and save the file. The simple act of applying the style permanently adds it to the docx file, even if you delete the item.
+To add a different style to the template document, you have to open the template.docx in Microsoft Word and add the style to an example item like a table. Then remove the item and save the file. The act of applying the style permanently adds it to the docx file, even if you delete the item.
 
 #TODO
 

@@ -8,7 +8,7 @@
 }
 .header {
   background: #222222;
-  color: white;
+  color: #F2F6F9;
 }
 .background {
   background: #222222;
@@ -22,5 +22,8 @@ hr {
   margin-bottom: 5px;
 }
 legend {
-  background: none !important; 
+  background: none !important;
+}
+.fieldset{
+  margin-top: 0;
 }

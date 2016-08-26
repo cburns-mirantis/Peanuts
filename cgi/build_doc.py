@@ -37,7 +37,7 @@ parser.add_argument('--customer-manager', action='store', dest='customer_manager
 parser.add_argument('--deployment-engineer', action='store', dest='deployment_engineer', type=str)
 parser.add_argument('--filename', action='store', dest='filename', type=str)
 parser.add_argument('--fuel-address', action='store', dest='host', type=str)
-parser.add_argument('--test',action="append",dest="tests")
+parser.add_argument('--test',action="append",dest="tests", type=str)
 args = parser.parse_args()
 
 # Get token from Keystone
@@ -47,9 +47,9 @@ def get_token():
     try:
         r = requests.post(url='https://' + args.host + ':' + '8443' + '/keystone/v2.0/tokens',headers=header,verify=False,json=creds,timeout=15)
     except:
-        sys.exit('Request timed out. Check Fuel web address and port.')
+        sys.exit(12)
     if r.status_code is not 200:
-        sys.exit('Check Fuel username & password')
+        sys.exit(13)
     return json.loads(r.text)['access']['token']['id']
 
 def get_nodes(token):
@@ -59,9 +59,13 @@ def get_nodes(token):
 def get_cluster(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
     cluster = json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/clusters/' + cluster_id,headers=header, verify=False).text)
-    print(cluster['status'])
-    if cluster['status'] is not 'operational':
-        sys.exit(1)
+    try:
+        if 'Cluster not found' in cluster['message']:
+            sys.exit(11)
+    except KeyError:
+        pass
+    if 'operational' not in cluster['status']:
+        sys.exit(10)
     return cluster
 
 def get_version(token):
@@ -95,7 +99,7 @@ def start_ostf(token,cluster_id,username,password):
 
     r = requests.post(url='http://' + args.host + ':' + '8777' + '/v1/testruns/',headers=header,verify=False,json=tests,timeout=15)
     if r.status_code is not 200:
-        sys.exit('Unable to start OSTF')
+        sys.exit(14)
 
 def wait_and_collect_ostf(token,cluster_id):
     while True:
@@ -195,7 +199,7 @@ def gen_access_table():
 
    line6 = table.rows[6].cells
    line6[0].text = 'OpenStack Horizon URL'
-   # line6[1].text = entries['ACCESS']['HOR_URL']
+   # line6[1].text = networkdata['vip']
 
    line7 = table.rows[7].cells
    line7[0].text = 'OpenStack Horizon Credentials'
@@ -308,7 +312,7 @@ def gen_support_table():
     if args.entitlement is 3:
        line14 = table.rows[14].cells
        line14[0].text = 'Customer Success Manager'
-       line14[1].text = args.entitlement
+       line14[1].text = args.customer_manager
 
 # Replaces items in the docx
 def docx_replace(old_file,new_file,rep):
@@ -331,7 +335,7 @@ def gen_nodes_table(cluster_id):
     nodes = []
     col_count = 6
     for node in nodedata:
-        if node['cluster'] is cluster_id:
+        if node['cluster'] is int(cluster_id):
             nodes.append(node)
 
     heading = runbook.add_heading('Nodes',level=1)
@@ -572,7 +576,7 @@ def add_picture_page(filename,page_break=True):
     p = last._element
     p.getparent().remove(p)
     p._p = p._element = None
-
+    
     im = Image.open(filename)
     im.save( filename.replace('.png','.jpg'),'JPEG')
 
@@ -661,8 +665,6 @@ runbook.add_page_break()
 
 
 networkdata = []
-# if 'operational' not in cluster['status']:
-#     break
 gen_nodes_table(args.environment)
 runbook.add_page_break()
 networkdata = get_network(token,args.environment)
@@ -671,6 +673,7 @@ runbook.add_page_break()
 runbook.add_page_break()
 
 tree = nwdiag.parser.parse_string(create_network_diagram(token, networkdata['networks'], cluster))
+print(tree)
 diagram = ScreenNodeBuilder.build(tree)
 draw = DiagramDraw('PNG', diagram, 'screens/network-layout.png',fontmap=None, antialias=False, nodoctype=True)
 draw.draw()
