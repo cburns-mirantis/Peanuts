@@ -749,79 +749,79 @@ screenshot(None,'Environments','clusters-page')
 if '7.0' not in version:
     screenshot('https://localhost:8443' + '/#equipment','Equipment','equipment-page')
 screenshot('https://localhost:8443' + '/#releases','Releases','releases-page')
-# screenshot('https://localhost:8443' + '/#plugins','Plugins','plugins-page')
-#
-# # Environments screenshots
-#
-# # if 'operational' not in e['status']:
-# #     break
-# c = "https://" + 'localhost' + ':8443' + '/#cluster/'  + str(cluster['id'])
-# nodes = []
-# for n in nodedata:
-#     if n['cluster'] is cluster['id']:
-#         nodes.append(n)
-#
-#
-# for i,n in enumerate(nodes):
-#     # cluster = str(e['id'])
-#     node = str(n['id'])
-#     if i == 0:
-#         screenshot(c + '/dashboard','Environment: ' + cluster['name'] + ' Dashboard','cluster-page',True)
-#         screenshot(c + '/nodes','Environment: ' + cluster['name'] + ' Nodes','nodes-tab',True)
-#     screenshot(c + '/nodes/disks/nodes:' +node,'Environment: ' + cluster['name'] + ' Node: ' + n['name'] + ' Disks','edit-node-disks-screen',True )
-#     screenshot(c + '/nodes/interfaces/nodes:' +node,'Environment: ' + cluster['name'] + ' Node: ' + n['name'] + ' Interfaces','ifc-container',True )
-#
-# if '7.0' in version:
-#     screenshot(c + '/network','Environment: ' + cluster['name'] + ' Network',None)
-# else:
-#     driver.get(c + '/network')
-#     wait_for_page_tag_class('network-tab')
-#     network_elements = driver.find_elements_by_tag_name('a')
-#     for i in range(len(network_elements)):
-#         element = network_elements[i]
-#         if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
-#             element.click()
-#             driver.execute_script('window.scrollTo(0,0);')
-#             time.sleep(.2)
-#             screenshot(None,'Environment: ' + cluster['name'] + ' Network ' + element.text,None)
-#         if 'Other' in element.text:
-#             element.click()
-#             time.sleep(.2)
-#             screenshot(None,'Environment: ' + cluster['name'] + ' Network Other',None)
-#
-# driver.get(c + '/settings')
-# wait_for_page_tag_class('settings-tab')
-# settings_elements = driver.find_elements_by_tag_name('a')
-# for i in range(len(settings_elements)-1):
-#     element = settings_elements[i]
-#     if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
-#         element.click()
-#         driver.execute_script('window.scrollTo(0,0);')
-#         time.sleep(.2)
-#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings ' + element.text,None)
-#     if 'Kernel parameters' in element.text:
-#         element.click()
-#         time.sleep(.2)
-#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Kernel Params',None)
-#     if 'Repositories' in element.text:
-#         element.click()
-#         time.sleep(.2)
-#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Repositories',None)
-#     if 'Host OS DNS Servers' in element.text:
-#         element.click()
-#         time.sleep(.2)
-#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings DNS',None)
-#     if 'Host OS NTP Servers' in element.text:
-#         element.click()
-#         time.sleep(.2)
-#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings NTP',None)
-#     if 'Public TLS' in element.text:
-#         element.click()
-#         time.sleep(.2)
-#         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Public TLS',None)
-# # driver.get(c + '/healthcheck')
-# # wait_for_page_tag_class('healthcheck-controls')
-# # screenshot(None,'Environment: ' + cluster['name'] + 'Health Check',None)
+screenshot('https://localhost:8443' + '/#plugins','Plugins','plugins-page')
+
+# Environments screenshots
+
+# if 'operational' not in e['status']:
+#     break
+c = "https://" + 'localhost' + ':8443' + '/#cluster/'  + str(cluster['id'])
+nodes = []
+for n in nodedata:
+    if n['cluster'] is cluster['id']:
+        nodes.append(n)
+
+
+for i,n in enumerate(nodes):
+    # cluster = str(e['id'])
+    node = str(n['id'])
+    if i == 0:
+        screenshot(c + '/dashboard','Environment: ' + cluster['name'] + ' Dashboard','cluster-page',True)
+        screenshot(c + '/nodes','Environment: ' + cluster['name'] + ' Nodes','nodes-tab',True)
+    screenshot(c + '/nodes/disks/nodes:' +node,'Environment: ' + cluster['name'] + ' Node: ' + n['name'] + ' Disks','edit-node-disks-screen',True )
+    screenshot(c + '/nodes/interfaces/nodes:' +node,'Environment: ' + cluster['name'] + ' Node: ' + n['name'] + ' Interfaces','ifc-container',True )
+
+if '7.0' in version:
+    screenshot(c + '/network','Environment: ' + cluster['name'] + ' Network',None)
+else:
+    driver.get(c + '/network')
+    wait_for_page_tag_class('network-tab')
+    network_elements = driver.find_elements_by_tag_name('a')
+    for i in range(len(network_elements)):
+        element = network_elements[i]
+        if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
+            element.click()
+            driver.execute_script('window.scrollTo(0,0);')
+            time.sleep(.2)
+            screenshot(None,'Environment: ' + cluster['name'] + ' Network ' + element.text,None)
+        if 'Other' in element.text:
+            element.click()
+            time.sleep(.2)
+            screenshot(None,'Environment: ' + cluster['name'] + ' Network Other',None)
+
+driver.get(c + '/settings')
+wait_for_page_tag_class('settings-tab')
+settings_elements = driver.find_elements_by_tag_name('a')
+for i in range(len(settings_elements)-1):
+    element = settings_elements[i]
+    if 'subtab-link-' + element.text.lower().replace(' ','_') in element.get_attribute('class'):
+        element.click()
+        driver.execute_script('window.scrollTo(0,0);')
+        time.sleep(.2)
+        screenshot(None,'Environment: ' + cluster['name'] + ' Settings ' + element.text,None)
+    if 'Kernel parameters' in element.text:
+        element.click()
+        time.sleep(.2)
+        screenshot(None,'Environment: ' + cluster['name'] + ' Settings Kernel Params',None)
+    if 'Repositories' in element.text:
+        element.click()
+        time.sleep(.2)
+        screenshot(None,'Environment: ' + cluster['name'] + ' Settings Repositories',None)
+    if 'Host OS DNS Servers' in element.text:
+        element.click()
+        time.sleep(.2)
+        screenshot(None,'Environment: ' + cluster['name'] + ' Settings DNS',None)
+    if 'Host OS NTP Servers' in element.text:
+        element.click()
+        time.sleep(.2)
+        screenshot(None,'Environment: ' + cluster['name'] + ' Settings NTP',None)
+    if 'Public TLS' in element.text:
+        element.click()
+        time.sleep(.2)
+        screenshot(None,'Environment: ' + cluster['name'] + ' Settings Public TLS',None)
+# driver.get(c + '/healthcheck')
+# wait_for_page_tag_class('healthcheck-controls')
+# screenshot(None,'Environment: ' + cluster['name'] + 'Health Check',None)
 
 # Close browser session
 driver.quit()
