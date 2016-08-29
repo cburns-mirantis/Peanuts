@@ -2,6 +2,7 @@ Vagrant.configure(2) do |config|
 
   config.vm.box = "ubuntu/trusty64"
   config.vm.network "public_network"
+  config.vm.network "forwarded_port", guest: 80, host: 8080
   config.vm.provision "shell", inline: <<-SHELL
     sudo add-apt-repository ppa:fkrull/deadsnakes
     sudo apt-get update
@@ -37,6 +38,6 @@ Vagrant.configure(2) do |config|
     sudo chmod -R og+xwr /var/www/html/
     sudo sed -i "s@www-data:/var/www:/usr/sbin/nologin@www-data:/var/www:/bin/bash@" /etc/passwd
     echo -n "Runbook Builder Address:"
-    ifconfig eth1 | grep 'inet ' | awk '{ print $2 }' | sed "s@addr:@http:\/\/@"
+    echo -n "http://localhost:8080"
   SHELL
 end

@@ -7,9 +7,13 @@ This script generates a runbook for use by Deployment or Support Engineers to ge
 
 `admin / admin`
 
-## Defaults for ssh credentials:
+## Defaults for Fuel ssh credentials:
 
 `root / r00tme`
+
+## Defaults for Vagrant vm ssh credentials:
+
+`vagrant / vagrant`
 
 ## Vagrantfile
 

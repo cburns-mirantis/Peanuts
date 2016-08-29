@@ -2,7 +2,7 @@
 # Version 0.03
 # https://github.com/cburns-mirantis/Peanuts
 
-import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re,configparser
+import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re,configparser,select,threading
 from tabulate import tabulate
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -18,6 +18,7 @@ from nwdiag.builder import ScreenNodeBuilder
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
+import socketserver as SocketServer
 
 # Handle Arguments
 parser = argparse.ArgumentParser()
@@ -45,7 +46,7 @@ def get_token():
     header = {'Content-Type': 'application/json', 'accept': 'application/json'}
     creds = {'auth': {'tenantName': args.web_username,'passwordCredentials': {'username': args.web_username,'password': args.web_password}}}
     try:
-        r = requests.post(url='https://' + args.host + ':' + '8443' + '/keystone/v2.0/tokens',headers=header,verify=False,json=creds,timeout=15)
+        r = requests.post(url='https://localhost:8443/keystone/v2.0/tokens',headers=header,verify=False,json=creds,timeout=15)
     except:
         sys.exit(12)
     if r.status_code is not 200:
@@ -54,11 +55,11 @@ def get_token():
 
 def get_nodes(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return sorted(json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
+    return sorted(json.loads(requests.get(url='https://localhost:8443/api/nodes',headers=header, verify=False).text), key=lambda k: k['hostname'])
 
 def get_cluster(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    cluster = json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/clusters/' + cluster_id,headers=header, verify=False).text)
+    cluster = json.loads(requests.get(url='https://localhost:8443/api/clusters/' + cluster_id,headers=header, verify=False).text)
     try:
         if 'Cluster not found' in cluster['message']:
             sys.exit(11)
@@ -70,15 +71,15 @@ def get_cluster(token,cluster_id):
 
 def get_version(token):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/version',headers=header, verify=False).text)['release']
+    return json.loads(requests.get(url='https://localhost:8443/api/version',headers=header, verify=False).text)['release']
 
 def get_network(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='https://' + args.host + ':' + '8443' + '/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
+    return json.loads(requests.get(url='https://localhost:8443/api/clusters/' + str(cluster_id) + '/network_configuration/neutron/', headers=header, verify=False).text)
 
 def get_test_result(token,cluster_id):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
-    return json.loads(requests.get(url='http://' + args.host + ':' + '8777' + '/v1/testruns/last/' + str(cluster_id), headers=header, verify=False).text)
+    return json.loads(requests.get(url='http://localhost:8777/v1/testruns/last/' + str(cluster_id), headers=header, verify=False).text)
 
 def start_ostf(token,cluster_id,username,password):
     header = {'X-Auth-Token': token,'Content-Type': 'application/json'}
@@ -97,7 +98,7 @@ def start_ostf(token,cluster_id,username,password):
             }
         })
 
-    r = requests.post(url='http://' + args.host + ':' + '8777' + '/v1/testruns/',headers=header,verify=False,json=tests,timeout=15)
+    r = requests.post(url='http://localhost:8777/v1/testruns/',headers=header,verify=False,json=tests,timeout=15)
     if r.status_code is not 200:
         sys.exit(14)
 
@@ -157,7 +158,7 @@ def fuel_info():
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('cat /etc/fuel/fuel-uuid')
     fuel['UUID'] = ssh_stdout.readlines()[0].replace('\n','')
 
-    # fuel['url'] = 'https://' + args.host + ':' + '8443'
+    # fuel['url'] = 'https://' + args.host + ':8443'
     # fuel['ssh'] = {'username':args.ssh_username,'password':args.ssh_password}
     # fuel['web'] = {'username':args.web_username,'password':args.web_password}
     return fuel
@@ -179,7 +180,7 @@ def gen_access_table():
 
    line1 = table.rows[1].cells
    line1[0].text = 'Fuel UI Master Node URL'
-   line1[1].text = 'https://' + args.host + ':' + '8443'
+   line1[1].text = 'https://' + args.host + ':8443'
 
    line2 = table.rows[2].cells
    line2[0].text = 'Fuel UI Credentials'
@@ -423,7 +424,7 @@ def wait_for_page_tag_class(class_name):
 # Handle webpage screenshots
 def screenshot(page,name,tag,fix=False):
     if fix:
-        driver.get('https://' + args.host + ':' + '8443')
+        driver.get('https://localhost:8443')
         time.sleep(1)
     if page is not None:
         driver.get(page)
@@ -576,7 +577,7 @@ def add_picture_page(filename,page_break=True):
     p = last._element
     p.getparent().remove(p)
     p._p = p._element = None
-    
+
     im = Image.open(filename)
     im.save( filename.replace('.png','.jpg'),'JPEG')
 
@@ -592,6 +593,56 @@ def add_picture_page(filename,page_break=True):
         runbook.add_page_break()
     os.remove(filename)
 
+class ForwardServer (SocketServer.ThreadingTCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+def forward_tunnel(local_port, remote_host, remote_port, transport):
+    class SubHander (Handler):
+        chain_host = remote_host
+        chain_port = remote_port
+        ssh_transport = transport
+    ForwardServer(('', local_port), SubHander).serve_forever()
+
+class Handler (SocketServer.BaseRequestHandler):
+    def handle(self):
+        try:
+            chan = self.ssh_transport.open_channel('direct-tcpip',(self.chain_host, self.chain_port),self.request.getpeername())
+        except Exception as e:
+            return
+        if chan is None:
+            return
+        while True:
+            r, w, x = select.select([self.request, chan], [], [])
+            if self.request in r:
+                data = self.request.recv(1024)
+                if len(data) == 0:
+                    break
+                chan.send(data)
+            if chan in r:
+                data = chan.recv(1024)
+                if len(data) == 0:
+                    break
+                self.request.send(data)
+
+        peername = self.request.getpeername()
+        chan.close()
+        self.request.close()
+
+def chromedriver():
+    # global driver
+    driver = webdriver.Chrome(service_args=["--verbose", "--log-path=chromedriver.log"])
+
+
+def open_tunnels():
+    transport = paramiko.Transport((args.host, int(args.ssh_port)))
+    transport.connect(username = args.ssh_username,password = args.ssh_password)
+    try:
+        threads.append(threading.Thread(target=forward_tunnel,args=(8777, "127.0.0.1", 8777, transport),daemon=True).start())
+        threads.append(threading.Thread(target=forward_tunnel,args=(8443, "127.0.0.1", 8443, transport),daemon=True).start())
+    except:
+        sys.exit(0)
+
 # =========================================
 # INIT
 # =========================================
@@ -603,19 +654,26 @@ try:
 except FileNotFoundError:
     os.makedirs('screens/')
 
-# entries = configparser.ConfigParser()
-# entries.read('entries.cfg')
-
 # Handle chromedriver dependency
 if not cmd_exists('chromedriver'):
     sys.exit('\nYou need chromedriver. Download from here:\nhttps://sites.google.com/a/chromium.org/chromedriver/downloads\n\nAnd install to your path:\nsudo cp chromedriver /usr/local/bin/')
+
+threads = []
+
+open_tunnels()
+global driver
+# try:
+#     threads.append(threading.Thread(target=chromedriver,daemon=True).start())
+# except:
+#     sys.exit(0)
+driver = webdriver.Chrome(service_args=["--verbose", "--log-path=chromedriver.log"])
 
 # Get token & Node informationfrom Fuel API
 token = get_token()
 # Get Fuel version
 version = get_version(token)
 
-cluster = get_cluster(token,args.environment) # check if operational and if it has nodes
+cluster = get_cluster(token,args.environment)
 
 nodedata = get_nodes(token)
 
@@ -623,9 +681,9 @@ if args.tests:
     start_ostf(token,args.environment,args.horizon_password,args.horizon_username)
 
 # Init Selenium + chromedriver
-driver = webdriver.Chrome()
+
 driver.set_window_size(1200, 1200)
-driver.get('https://' + args.host + ':' + '8443')
+driver.get('https://localhost:8443')
 
 # Handle Login
 try:
@@ -663,7 +721,6 @@ runbook.add_page_break()
 gen_support_table()
 runbook.add_page_break()
 
-
 networkdata = []
 gen_nodes_table(args.environment)
 runbook.add_page_break()
@@ -673,7 +730,6 @@ runbook.add_page_break()
 runbook.add_page_break()
 
 tree = nwdiag.parser.parse_string(create_network_diagram(token, networkdata['networks'], cluster))
-print(tree)
 diagram = ScreenNodeBuilder.build(tree)
 draw = DiagramDraw('PNG', diagram, 'screens/network-layout.png',fontmap=None, antialias=False, nodoctype=True)
 draw.draw()
@@ -691,15 +747,15 @@ if args.tests:
 # Fuel main tabs screenshots
 screenshot(None,'Environments','clusters-page')
 if '7.0' not in version:
-    screenshot('https://' + args.host + ':' + '8443' + '/#equipment','Equipment','equipment-page')
-screenshot('https://' + args.host + ':' + '8443' + '/#releases','Releases','releases-page')
-# screenshot('https://' + args.host + ':' + '8443' + '/#plugins','Plugins','plugins-page')
+    screenshot('https://localhost:8443' + '/#equipment','Equipment','equipment-page')
+screenshot('https://localhost:8443' + '/#releases','Releases','releases-page')
+# screenshot('https://localhost:8443' + '/#plugins','Plugins','plugins-page')
 #
 # # Environments screenshots
 #
 # # if 'operational' not in e['status']:
 # #     break
-# c = "https://" + args.host + ':' + '8443' + '/#cluster/'  + str(cluster['id'])
+# c = "https://" + 'localhost' + ':8443' + '/#cluster/'  + str(cluster['id'])
 # nodes = []
 # for n in nodedata:
 #     if n['cluster'] is cluster['id']:
@@ -768,7 +824,7 @@ screenshot('https://' + args.host + ':' + '8443' + '/#releases','Releases','rele
 # # screenshot(None,'Environment: ' + cluster['name'] + 'Health Check',None)
 
 # Close browser session
-driver.close()
+driver.quit()
 
 last = runbook.paragraphs[-1]
 p = last._element
