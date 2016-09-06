@@ -22,12 +22,16 @@ This vagrant file sets up the dependencies and hosts the web app in an Ubuntu VM
 1. git clone https://github.com/cburns-mirantis/Peanuts
 2. cd Peanuts
 3. vagrant up
-4. There will be a link to the Runbook Builder like this
+4. The runbook builder will be available at http://localhost:8080
 
-`==> default: Runbook Builder Address:`
-`==> default: http://192.168.1.44`
+### Fuel directly accessible
 
-5. Goto address and fill out form and click `Build Runbook`
+5. Enter the address of the fuel server
+6. Submit form and a download link will appear
+
+### Fuel behind port forward
+
+5.
 
 #Adding styles to the document
 

@@ -3,7 +3,6 @@
 # https://github.com/cburns-mirantis/Peanuts
 
 import zipfile,time,argparse,requests,json,sys,os,paramiko,shutil,math,re,configparser,select,threading
-from tabulate import tabulate
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -165,46 +164,72 @@ def fuel_info():
 
 # Generate 'Access Information' table
 def gen_access_table():
-   row_count = 8
+   row_count = 7
    col_count = 2
 
    heading = runbook.add_heading('Access Information',level=1)
    heading.alignment = 1
    table = runbook.add_table(row_count, col_count)
-   table.style = runbook.styles['Light Grid Accent 1']
+   table.style = runbook.styles['Light Grid Accent 2']
 
-   hdr_cells = table.rows[0].cells
-   hdr_cells[0].text = ''
-   hdr_cells[1].text = ''
-   # hdr_cells[2].text = 'Comment(s)'
-
-   line1 = table.rows[1].cells
+   line1 = table.rows[0].cells
    line1[0].text = 'Fuel UI Master Node URL'
    line1[1].text = 'https://' + args.host + ':8443'
 
-   line2 = table.rows[2].cells
+   line2 = table.rows[1].cells
    line2[0].text = 'Fuel UI Credentials'
    line2[1].text = args.web_username + ' / ' + args.web_password
 
-   line3 = table.rows[3].cells
+   line3 = table.rows[2].cells
    line3[0].text = 'Fuel Master Node IP'
    line3[1].text = args.host
 
-   line4 = table.rows[4].cells
+   line4 = table.rows[3].cells
    line4[0].text = 'Fuel SSH Credentials'
    line4[1].text = args.ssh_username + ' / ' + args.ssh_password
 
-   line5 = table.rows[5].cells
+   line5 = table.rows[4].cells
    line5[0].text = 'OpenStack Nodes SSH Credentials'
    line5[1].text = args.ssh_username + ' / ' + args.ssh_password
 
-   line6 = table.rows[6].cells
+   line6 = table.rows[5].cells
    line6[0].text = 'OpenStack Horizon URL'
    # line6[1].text = networkdata['vip']
 
-   line7 = table.rows[7].cells
+   line7 = table.rows[6].cells
    line7[0].text = 'OpenStack Horizon Credentials'
    line7[1].text = args.horizon_username + ' / ' + args.horizon_password
+
+def gen_environment_table():
+   row_count = 6
+   col_count = 2
+
+   table = runbook.add_table(row_count, col_count)
+   table.style = runbook.styles['Light Grid Accent 2']
+
+   line1 = table.rows[0].cells
+   line1[0].text = 'Openstack Release'
+   line1[1].text = ''
+
+   line2 = table.rows[1].cells
+   line2[0].text = 'Compute Backend'
+   line2[1].text = ''
+
+   line3 = table.rows[2].cells
+   line3[0].text = 'Networking Setup'
+   line3[1].text = ''
+
+   line4 = table.rows[3].cells
+   line4[0].text = 'Storage Backend'
+   line4[1].text = ''
+
+   line5 = table.rows[4].cells
+   line5[0].text = 'Additional Services'
+   line5[1].text = ''
+
+   line6 = table.rows[5].cells
+   line6[0].text = 'Fuel SSH Credentials'
+   line6[1].text = ''
 
 # Handle entitlement table based on Support entitlement level
 def entitlement_handler(entitlement):
@@ -243,7 +268,7 @@ def entitlement_handler(entitlement):
 
 # Generate 'Support Information' table
 def gen_support_table():
-    row_count = 14
+    row_count = 13
     col_count = 2
     if args.entitlement is 3:
         row_count += 1
@@ -252,66 +277,62 @@ def gen_support_table():
     heading = runbook.add_heading('Support Information',level=1)
     heading.alignment = 1
     table = runbook.add_table(row_count, col_count)
-    table.style = runbook.styles['Light Grid Accent 1']
+    table.style = runbook.styles['Light Grid Accent 2']
 
-    hdr_cells = table.rows[0].cells
-    hdr_cells[0].text = ''
-    hdr_cells[1].text = ''
-
-    line1 = table.rows[1].cells
+    line1 = table.rows[0].cells
     line1[0].text = 'Customer Name'
     line1[1].text = args.customer_name
 
-    line2 = table.rows[2].cells
+    line2 = table.rows[1].cells
     line2[0].text = 'Environment ID'
     line2[1].text = fuel['UUID']
 
-    line3 = table.rows[3].cells
+    line3 = table.rows[2].cells
     line3[0].text = 'Support Entitlement Package'
     line3[1].text = entitlements['ENTITLEMENT']
 
-    line4 = table.rows[4].cells
+    line4 = table.rows[3].cells
     line4[0].text = 'Days of Direct Support'
     line4[1].text = entitlements['E_DAYS']
 
-    line5 = table.rows[5].cells
+    line5 = table.rows[4].cells
     line5[0].text = 'Hours of Direct Support'
     line5[1].text = entitlements['E_HOURS']
 
-    line6 = table.rows[6].cells
+    line6 = table.rows[5].cells
     line6[0].text = 'Support Timezone'
     line6[1].text = args.timezone
 
-    line7 = table.rows[7].cells
+    line7 = table.rows[6].cells
     line7[0].text = 'Support Phone Numbers'
     line7[1].text = '+1 (650) 963-9828, +1 (925) 808-FUEL'
 
-    line8 = table.rows[8].cells
+    line8 = table.rows[7].cells
     line8[0].text = 'Support Email'
     line8[1].text = 'support@mirantis.com'
 
-    line9 = table.rows[9].cells
+    line9 = table.rows[8].cells
     line9[0].text = 'Support Website'
     line9[1].text = 'https://support.mirantis.com/'
 
-    line10 = table.rows[10].cells
+    line10 = table.rows[9].cells
     line10[0].text = 'Severity 1 SLA'
     line10[1].text = entitlements['E_SEV1']
 
-    line11 = table.rows[11].cells
+    line11 = table.rows[10].cells
     line11[0].text = 'Severity 2 SLA'
     line11[1].text = entitlements['E_SEV2']
 
-    line12 = table.rows[12].cells
+    line12 = table.rows[11].cells
     line12[0].text = 'Severity 3 SLA'
     line12[1].text = entitlements['E_SEV3']
 
-    line13 = table.rows[13].cells
+    line13 = table.rows[12].cells
     line13[0].text = 'Severity 4 SLA'
     line13[1].text = entitlements['E_SEV4']
 
     if args.entitlement is 3:
-       line14 = table.rows[14].cells
+       line14 = table.rows[13].cells
        line14[0].text = 'Customer Success Manager'
        line14[1].text = args.customer_manager
 
@@ -629,11 +650,6 @@ class Handler (SocketServer.BaseRequestHandler):
         chan.close()
         self.request.close()
 
-def chromedriver():
-    # global driver
-    driver = webdriver.Chrome(service_args=["--verbose", "--log-path=chromedriver.log"])
-
-
 def open_tunnels():
     transport = paramiko.Transport((args.host, int(args.ssh_port)))
     transport.connect(username = args.ssh_username,password = args.ssh_password)
@@ -661,11 +677,7 @@ if not cmd_exists('chromedriver'):
 threads = []
 
 open_tunnels()
-global driver
-# try:
-#     threads.append(threading.Thread(target=chromedriver,daemon=True).start())
-# except:
-#     sys.exit(0)
+
 driver = webdriver.Chrome(service_args=["--verbose", "--log-path=chromedriver.log"])
 
 # Get token & Node informationfrom Fuel API
@@ -710,9 +722,73 @@ replaces = {
 "AUTHORS": args.deployment_engineer
 }
 
+node_types = {
+"Controller" : "The controller node hosts all OpenStack management services. It runs MySQL and RabbitMQ used for communication between nodes. The Glance image service and the Ceph Monitor service also run there.",
+"Comptute" : "Compute nodes are responsible for running VMs.",
+"Storage" : "Storage nodes are storing Glance images, volumes, VM’s block devices. The Ceph OSD Daemon is running there.",
+"Fuel Master" : "Fuel master node is responsible for managing OpenStack installation by UI or CLI, collecting log files.",
+"Mongo" : "Ceilometer uses Mongo database as a backend for metrics storing.",
+"Base OS" : "",
+"Ironic" : "",
+"" : "",
+# "" : "",
+"LMA" : ""
+}
+
 docx_replace('template.docx','cover.docx',replaces)
 
 runbook = Document('cover.docx')
+
+runbook.add_heading('Introduction',level=1)
+p = runbook.add_paragraph('This document describes the installation process of ' + args.customer_name + '’s OpenStack cloud. For more detailed information, use official Mirantis OpenStack documentation.')
+# p.add_hyperlink(text='Mirantis OpenStack  documentation.',url='https://docs.mirantis.com/openstack/fuel/fuel-8.0/maintenance-updates.html#maintenance-updates-for-mirantis-openstack-8-0')
+runbook.add_heading('Fuel Master Node Installation',level=1)
+runbook.add_paragraph('Step by step manual for installation of Fuel master node available on the Mirantis website here.')
+runbook.add_paragraph('The following settings were used during installation of Fuel node:')
+
+runbook.add_heading('Post installation customization',level=3)
+runbook.add_paragraph('Prepare node for latest MU. Download the update repository to the Fuel Master node and use it as an update mirror. See details here.',style=runbook.styles['List Bullet'])
+runbook.add_paragraph('Item 2',style=runbook.styles['List Bullet'])
+
+runbook.add_page_break()
+
+runbook.add_heading('OpenStack Environment Deployment',level=1)
+runbook.add_heading('Creation of environment',level=3)
+runbook.add_paragraph('Step by step instruction for installation of an OpenStack environment using Fuel is available here.',style=runbook.styles['List Bullet'])
+runbook.add_paragraph('The following settings were used for this installation of OpenStack:',style=runbook.styles['List Bullet'])
+
+gen_environment_table()
+
+
+runbook.add_page_break()
+
+runbook.add_heading('Pre Deployment Customization',level=1)
+runbook.add_heading('Item 1',level=2)
+
+table = runbook.add_table(1, 1)
+table.style = runbook.styles['Light Grid Accent 2']
+
+
+runbook.add_heading('Item 2',level=2)
+table = runbook.add_table(1, 1)
+table.style = runbook.styles['Light Grid Accent 2']
+
+runbook.add_page_break()
+
+runbook.add_heading('Post Deployment Customization',level=1)
+runbook.add_heading('Item 1',level=2)
+table = runbook.add_table(1, 1)
+table.style = runbook.styles['Light Grid Accent 2']
+
+runbook.add_heading('Item 2',level=2)
+table = runbook.add_table(1, 1)
+table.style = runbook.styles['Light Grid Accent 2']
+
+runbook.add_page_break()
+
+runbook.add_heading('Types Of Nodes In This Cloud',level=1)
+
+runbook.add_page_break()
 
 fuel = fuel_info()
 gen_access_table()
@@ -744,7 +820,7 @@ p._p = p._element = None
 if args.tests:
     gen_ostf_table(wait_and_collect_ostf(token,args.environment),cluster['name'])
 
-# Fuel main tabs screenshots
+# # Fuel main tabs screenshots
 screenshot(None,'Environments','clusters-page')
 if '7.0' not in version:
     screenshot('https://localhost:8443' + '/#equipment','Equipment','equipment-page')
@@ -819,9 +895,9 @@ for i in range(len(settings_elements)-1):
         element.click()
         time.sleep(.2)
         screenshot(None,'Environment: ' + cluster['name'] + ' Settings Public TLS',None)
-# driver.get(c + '/healthcheck')
-# wait_for_page_tag_class('healthcheck-controls')
-# screenshot(None,'Environment: ' + cluster['name'] + 'Health Check',None)
+driver.get(c + '/healthcheck')
+wait_for_page_tag_class('healthcheck-controls')
+screenshot(None,'Environment: ' + cluster['name'] + 'Health Check',None)
 
 # Close browser session
 driver.quit()

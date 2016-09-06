@@ -3,7 +3,6 @@
 import cgi,cgitb,os,time,subprocess
 from subprocess import Popen, PIPE
 cgitb.enable()
-# from subprocess import STDOUT, check_output
 form = cgi.FieldStorage()
 
 address = form.getvalue('fuel_address')
@@ -84,23 +83,13 @@ command += ' --deployment-engineer \'' + deployment_engineer + '\''
 for c in checks:
     command += ' --test \'' + c + '\''
 
-# print('Status: 200\nContent-type: text/html\n')
-# print(command)
-
 proc = Popen(command,stdout=PIPE,stderr=PIPE,shell=True)
-
-# print('Status: 200\nContent-type: text/html\n')
-# print('before',int(time.time()))
 stdout, stderr = proc.communicate()
-
-
 
 if proc.returncode is 0:
     print('Status: 200\nContent-type: text/html\n')
     print('<h1>Runbook Build Complete</h1>')
     print('<a href=\"http://' + os.environ['SERVER_NAME'] + ':8080/runbooks/' + filename + '\" class=\"button expanded large\" >Download</a>')
-    # print('<p>The command ran was:</p>')
-    # print('<p>' + proc.args + '</p>')
 elif proc.returncode is 10:
     print('Status: 500\nContent-type: text/html\n')
     print('<h1>Incorrect Environment Error</h1><hr>')
@@ -137,5 +126,7 @@ else:
     print('<p>' + proc.args + '</p>')
     print('<p>The stdout was:</p>')
     print(stdout)
+    print('<p>The stderr was:</p>')
+    print(stderr)
     print('<br><p>The return code was:</p>')
     print(proc.returncode)

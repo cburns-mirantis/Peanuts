@@ -4,9 +4,8 @@ Vagrant.configure(2) do |config|
   config.vm.network "public_network"
   config.vm.network "forwarded_port", guest: 80, host: 8080
   config.vm.provision "shell", inline: <<-SHELL
-    sudo add-apt-repository ppa:fkrull/deadsnakes
     sudo apt-get update
-    sudo apt-get install -y python3.5 apache2 libffi-dev libssl-dev gconf-service libgconf-2-4 libgtk2.0-0 fonts-liberation libappindicator1 xdg-utils libpango1.0-0 python3-pip libxml2-dev python3-lxml libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk unzip xvfb libnss3-dev
+    sudo apt-get install -y python3.4 apache2 libffi-dev libssl-dev gconf-service libgconf-2-4 libgtk2.0-0 fonts-liberation libappindicator1 xdg-utils libpango1.0-0 python3-pip libxml2-dev python3-lxml libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk unzip xvfb libnss3-dev
     sudo apt-get -f install
     wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb >/dev/null 2>&1
     sudo dpkg -i google-chrome-stable_current_amd64.deb
